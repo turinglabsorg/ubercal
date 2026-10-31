@@ -318,6 +318,15 @@ export function createServer(context, config) {
     res.end(req.method === "HEAD" ? undefined : built.ics);
   }
 
+  async function assetVersion(asset) {
+    try {
+      const info = await stat(join(webDir, asset));
+      return `${info.size.toString(36)}${Math.floor(info.mtimeMs).toString(36)}`;
+    } catch {
+      return "";
+    }
+  }
+
   async function serveFile(req, res, relative, { page = false } = {}) {
     const path = normalize(join(webDir, relative));
     if (!path.startsWith(webDir + sep)) return send(res, 404, "Not found.");
@@ -333,7 +342,18 @@ export function createServer(context, config) {
     const type = MIME[extname(path)] || "application/octet-stream";
     // Pages, styles and scripts are checked again on every visit (a 304 when unchanged), so a deploy never mixes old and new files.
     const cache = extname(path) === ".woff2" ? "public, max-age=31536000, immutable" : "no-cache";
-    const etag = `"${info.size.toString(36)}-${Math.floor(info.mtimeMs).toString(36)}"`;
+    let etag = `"${info.size.toString(36)}-${Math.floor(info.mtimeMs).toString(36)}"`;
+    if (page) {
+      // Each style and script a page names carries its version, so no browser keeps an older copy under the same address.
+      let text = body.toString("utf8");
+      const assets = [...new Set(text.match(/\/static\/[a-z-]+\.(?:css|js)(?=")/g) || [])];
+      for (const asset of assets) {
+        const version = await assetVersion(asset);
+        if (version) text = text.split(`${asset}"`).join(`${asset}?v=${version}"`);
+      }
+      body = Buffer.from(text);
+      etag = `"${createHash("sha256").update(body).digest("base64url").slice(0, 22)}"`;
+    }
     const headers = { "Content-Type": type, "Cache-Control": cache, ETag: etag, ...(page ? PAGE_HEADERS : { "X-Content-Type-Options": "nosniff" }) };
     if (req.headers["if-none-match"] === etag) {
       res.writeHead(304, headers);
