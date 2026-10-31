@@ -94,16 +94,21 @@ export function when(start, end, timeZone, language = "en") {
 
 function layout({ badge, badgeColor = "#19c27a", title, callout, lines, button, footer }) {
   const rows = lines.map(([label, value]) => `<tr><td style="padding:6px 12px 6px 0;color:#7d7887;font-size:13px;font-weight:700;white-space:nowrap;vertical-align:top">${escape(label)}</td><td style="padding:6px 0;color:#121117;font-size:15px">${escape(value).replace(/\n/g, "<br>")}</td></tr>`).join("");
-  const note = callout ? `<p style="margin:0 0 16px;padding:12px 14px;border:2px solid #121117;border-radius:12px;background:#ffd23f;color:#121117;font-size:15px;font-weight:700;line-height:1.45">${escape(callout)}</p>` : "";
-  const action = button ? `<p style="margin:22px 0 0"><a href="${escape(button.href)}" style="display:inline-block;padding:12px 18px;border:2px solid #121117;border-radius:12px;background:#3a5bff;color:#ffffff;font-weight:800;text-decoration:none">${escape(button.label)}</a></p>` : "";
+  // The site's look: 2px ink outlines and hard ink shadows. A client that drops box-shadow or transform keeps the rest.
+  const note = callout ? `<p style="margin:0 0 18px;padding:12px 14px;border:2px solid #121117;border-radius:12px;background:#ffd23f;color:#121117;font-size:15px;font-weight:700;line-height:1.45;box-shadow:3px 3px 0 #121117">${escape(callout)}</p>` : "";
+  const action = button ? `<p style="margin:22px 0 4px"><a href="${escape(button.href)}" style="display:inline-block;padding:12px 18px;border:2px solid #121117;border-radius:12px;background:#3a5bff;color:#ffffff;font-weight:800;text-decoration:none;box-shadow:3px 3px 0 #121117">${escape(button.label)}</a></p>` : "";
   return `<!doctype html><html><body style="margin:0;padding:24px;background:#fffaf0;font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif">
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td align="center">
-<table role="presentation" width="100%" style="max-width:560px;border:2px solid #121117;border-radius:16px;background:#ffffff" cellspacing="0" cellpadding="0"><tr><td style="padding:24px">
-<span style="display:inline-block;padding:4px 10px;border:2px solid #121117;border-radius:999px;background:${badgeColor};color:#121117;font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase">${escape(badge)}</span>
+<table role="presentation" width="100%" style="max-width:560px" cellspacing="0" cellpadding="0"><tr><td style="padding:0 0 16px 2px;color:#7d7887;font-size:13px;font-weight:700">
+<a href="https://fluxkit.dev" style="color:#7d7887;text-decoration:none">fluxkit</a>&nbsp;/&nbsp;
+<a href="https://ubercal.fluxkit.dev" style="display:inline-block;padding:3px 10px;border:2px solid #121117;border-radius:8px;background:#ffd23f;color:#121117;font-size:14px;font-weight:900;letter-spacing:-.01em;text-decoration:none;transform:rotate(-2deg);box-shadow:2px 2px 0 #121117">ubercal</a>
+</td></tr></table>
+<table role="presentation" width="100%" style="max-width:560px;border:2px solid #121117;border-radius:16px;background:#ffffff;box-shadow:6px 6px 0 #121117" cellspacing="0" cellpadding="0"><tr><td style="padding:24px">
+<span style="display:inline-block;padding:4px 10px;border:2px solid #121117;border-radius:999px;background:${badgeColor};color:#121117;font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;box-shadow:2px 2px 0 #121117">${escape(badge)}</span>
 <h1 style="margin:14px 0 16px;color:#121117;font-size:22px;line-height:1.25">${escape(title)}</h1>
 ${note}<table role="presentation" cellspacing="0" cellpadding="0">${rows}</table>${action}
 </td></tr></table>
-<p style="margin:16px 0 0;color:#7d7887;font-size:12px">${escape(footer)} <a href="https://ubercal.fluxkit.dev" style="color:#7d7887">ubercal.fluxkit.dev</a></p>
+<p style="margin:22px 0 0;color:#7d7887;font-size:12px">${escape(footer)} <a href="https://ubercal.fluxkit.dev" style="color:#7d7887">ubercal.fluxkit.dev</a></p>
 </td></tr></table></body></html>`;
 }
 
