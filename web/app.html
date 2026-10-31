@@ -52,6 +52,7 @@
       <button class="tab" role="tab" type="button" id="tab-accounts" data-tab="accounts" aria-controls="panel-accounts"><b>01</b>accounts</button>
       <button class="tab" role="tab" type="button" id="tab-calendar" data-tab="calendar" aria-controls="panel-calendar"><b>02</b>calendar</button>
       <button class="tab" role="tab" type="button" id="tab-share" data-tab="share" aria-controls="panel-share"><b>03</b>share</button>
+      <button class="tab" role="tab" type="button" id="tab-book" data-tab="book" aria-controls="panel-book"><b>04</b>book</button>
     </nav>
 
     <main>
@@ -107,6 +108,13 @@
         <div class="panel">
           <div class="panel-head"><h2 id="links-title"><b>03</b>share links</h2><button class="btn small" type="button" data-new-link><svg aria-hidden="true"><use href="#i-plus"/></svg>new link</button></div>
           <div class="panel-body links-body" data-feeds></div>
+        </div>
+      </section>
+
+      <section class="tab-panel" id="panel-book" role="tabpanel" aria-labelledby="tab-book" data-panel="book" hidden>
+        <div class="panel">
+          <div class="panel-head"><h2 id="pages-title"><b>04</b>booking pages</h2><button class="btn small" type="button" data-new-page><svg aria-hidden="true"><use href="#i-plus"/></svg>new page</button></div>
+          <div class="panel-body pages-body" data-pages></div>
         </div>
       </section>
     </main>

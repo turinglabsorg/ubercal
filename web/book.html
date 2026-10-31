@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Book a time · ubercal</title>
+  <meta name="robots" content="noindex">
+  <meta name="theme-color" content="#fffaf0" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#121117" media="(prefers-color-scheme: dark)">
+  <script src="/static/theme.js"></script>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="preload" href="/static/fonts/unbounded.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="/static/fonts/figtree.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="/static/site.css">
+</head>
+<body class="booking">
+  <svg width="0" height="0" class="sr" aria-hidden="true">
+    <symbol id="i-mark" viewBox="0 0 30 34"><g fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><line x1="15" y1="2" x2="15" y2="16"/><line x1="15" y1="16" x2="3" y2="31"/><line x1="15" y1="16" x2="27" y2="31"/></g></symbol>
+    <symbol id="i-left" viewBox="0 0 16 16"><path d="M10 3 5 8l5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-right" viewBox="0 0 16 16"><path d="m6 3 5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-sun" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M5.3 18.7l1.6-1.6M17.1 6.9l1.6-1.6"/></g></symbol>
+    <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/></symbol>
+  </svg>
+  <div class="wrap">
+    <header class="bar">
+      <a class="crumb" href="/">
+        <svg aria-hidden="true"><use href="#i-mark"/></svg>
+        fluxkit <span>/</span> <strong>ubercal</strong>
+      </a>
+      <nav aria-label="Theme">
+        <button class="theme" type="button" data-theme-toggle aria-label="Switch between light and dark"><svg class="sun" aria-hidden="true"><use href="#i-sun"/></svg><svg class="moon" aria-hidden="true"><use href="#i-moon"/></svg></button>
+      </nav>
+    </header>
+
+    <main class="book" data-book>
+      <p class="empty">Opening the calendar…</p>
+    </main>
+
+    <footer>
+      <div class="foot">
+        <span>Booking with <a href="/">ubercal</a>, an open-source <a href="https://fluxkit.dev">fluxkit</a> tool</span>
+        <nav aria-label="Footer">
+          <a href="https://fluxkit.dev/privacy/">privacy</a>
+          <a href="https://fluxkit.dev/terms/">terms</a>
+        </nav>
+      </div>
+    </footer>
+  </div>
+  <div class="toast" role="status" aria-live="polite" hidden></div>
+  <script src="/static/book.js" defer></script>
+</body>
+</html>

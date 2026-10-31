@@ -306,6 +306,7 @@
     renderSources();
     renderAccounts();
     renderFeeds();
+    renderPages();
   }
 
   function tick() {
@@ -326,7 +327,7 @@
 
   /* ---------- tabs ---------- */
 
-  const TABS = ["accounts", "calendar", "share"];
+  const TABS = ["accounts", "calendar", "share", "book"];
   function currentTab() {
     const asked = location.hash.slice(1);
     if (TABS.includes(asked)) return asked;
@@ -553,6 +554,152 @@
   for (const button of document.querySelectorAll("[data-view]")) button.addEventListener("click", () => { cal.view = button.dataset.view; loadCalendar(); });
   $("[data-cal-as]").addEventListener("change", (event) => { cal.as = event.target.value; loadCalendar(); });
 
+
+  /* ---------- booking pages ---------- */
+
+  const DAYS = [["1", "Mon"], ["2", "Tue"], ["3", "Wed"], ["4", "Thu"], ["5", "Fri"], ["6", "Sat"], ["7", "Sun"]];
+  const DURATION_CHOICES = [15, 20, 30, 45, 60, 90, 120];
+  const NOTICE_CHOICES = [[0, "no notice"], [60, "1 hour notice"], [120, "2 hours notice"], [240, "4 hours notice"], [720, "12 hours notice"], [1440, "1 day notice"], [2880, "2 days notice"]];
+  const AHEAD_CHOICES = [7, 14, 30, 60, 90];
+  const BUFFER_CHOICES = [0, 5, 10, 15, 30];
+  const ZONES = (() => { try { return Intl.supportedValuesOf("timeZone"); } catch { return ["UTC"]; } })();
+  const length = (minutes) => minutes < 60 ? `${minutes} min` : minutes % 60 ? `${Math.floor(minutes / 60)} h ${minutes % 60}` : `${minutes / 60} h`;
+  const ownedCalendars = new Map();
+
+  async function loadOwned() {
+    for (const connection of state.connections.filter((entry) => entry.canWrite && entry.status !== "revoked")) {
+      if (ownedCalendars.has(connection.id)) continue;
+      ownedCalendars.set(connection.id, []);
+      try {
+        const { calendars } = await call("GET", `/connections/${connection.id}/calendars`);
+        ownedCalendars.set(connection.id, calendars.filter((calendar) => calendar.access === "owner"));
+      } catch { ownedCalendars.delete(connection.id); }
+      renderPages();
+    }
+  }
+
+  async function patchPage(page, body) {
+    try { setState(await call("PATCH", `/pages/${page.id}`, body)); } catch (error) { toast(error.message, "bad"); render(); }
+  }
+
+  function hoursEditor(page) {
+    const hours = JSON.parse(JSON.stringify(page.hours || {}));
+    const save = () => patchPage(page, { hours });
+    return el("div", { class: "hours-editor" }, DAYS.map(([day, label]) => {
+      const ranges = hours[day] || [];
+      const toggle = el("input", { type: "checkbox", checked: ranges.length > 0, "aria-label": `${label} open` });
+      toggle.addEventListener("change", () => {
+        if (toggle.checked) hours[day] = [["09:00", "17:00"]];
+        else delete hours[day];
+        save();
+      });
+      return el("div", { class: `day-row${ranges.length ? "" : " closed"}` },
+        el("label", { class: "day-name" }, toggle, el("span", { text: label })),
+        el("div", { class: "ranges" },
+          ranges.length ? ranges.map((range, index) => {
+            const from = el("input", { class: "time", type: "time", value: range[0], step: "900", "aria-label": `${label} from` });
+            const to = el("input", { class: "time", type: "time", value: range[1], step: "900", "aria-label": `${label} until` });
+            for (const input of [from, to]) input.addEventListener("change", () => { hours[day][index] = [from.value, to.value]; save(); });
+            return el("div", { class: "range" }, from, el("span", { text: "–" }), to,
+              el("button", { class: "icon-btn", type: "button", title: "remove these hours", "aria-label": `Remove ${label} ${range[0]}–${range[1]}`, onclick: () => {
+                hours[day].splice(index, 1);
+                if (!hours[day].length) delete hours[day];
+                save();
+              } }, icon("trash")));
+          }) : el("span", { class: "closed-note", text: "closed" }),
+          ranges.length && ranges.length < 4 ? el("button", { class: "btn small quiet", type: "button", onclick: () => {
+            const last = ranges[ranges.length - 1][1];
+            const [h, m] = last.split(":").map(Number);
+            const start = Math.min(h * 60 + m + 60, 22 * 60);
+            const pad = (value) => String(value).padStart(2, "0");
+            hours[day].push([`${pad(Math.floor(start / 60))}:${pad(start % 60)}`, `${pad(Math.min(Math.floor(start / 60) + 2, 23))}:${pad(start % 60)}`]);
+            save();
+          } }, icon("plus"), el("span", { text: "hours" })) : null));
+    }));
+  }
+
+  function pageTarget(page) {
+    const writers = state.connections.filter((connection) => connection.canWrite && connection.status !== "revoked");
+    if (!writers.length) {
+      const account = state.connections[0];
+      return el("div", { class: "page-status warn" },
+        el("p", { text: "To take bookings, ubercal needs leave to add events to one of your Google calendars." }),
+        el("a", { class: "btn primary small", href: `/auth/google/calendar?write=1${account ? `&account=${account.id}` : "&hint=self"}` }, el("span", { text: "let ubercal add events" })));
+    }
+    const select = el("select", { class: "select", "aria-label": "Bookings go into" });
+    select.append(el("option", { value: "", text: "choose a calendar", disabled: true, selected: !page.target }));
+    for (const connection of writers) {
+      const calendars = ownedCalendars.get(connection.id) || [{ id: connection.email, name: connection.email }];
+      const group = el("optgroup", { label: connection.email });
+      for (const calendar of calendars) group.append(el("option", { value: `${connection.id}|${calendar.id}`, text: calendar.primary ? `${calendar.name} (main)` : calendar.name, selected: page.target?.connectionId === connection.id && page.target?.calendarId === calendar.id }));
+      select.append(group);
+    }
+    select.addEventListener("change", () => { const [connectionId, calendarId] = select.value.split("|"); patchPage(page, { target: { connectionId, calendarId } }); });
+    return el("div", { class: `page-status${page.ready ? " ok" : " warn"}` },
+      el("label", { class: "field-inline" }, el("span", { text: "bookings go into" }), select),
+      page.ready ? null : el("p", { text: "Choose the calendar where booked meetings are added." }),
+      state.connections.some((connection) => !connection.canWrite) ? el("a", { class: "more-link", href: "/auth/google/calendar?write=1", text: "add events to another account" }) : null);
+  }
+
+  function renderPages() {
+    const box = $("[data-pages]");
+    if (!box || !state) return;
+    $("[data-new-page]").disabled = (state.pages || []).length >= (state.limits.pages || 10);
+    if (!state.pages?.length) {
+      box.replaceChildren(el("div", { class: "cal-empty" },
+        el("p", { text: "A booking page lets people pick a free time in your calendar, like Calendly: you choose how long, and when." }),
+        el("button", { class: "btn primary", type: "button", onclick: newPage }, el("span", { text: "make a booking page" }))));
+      return;
+    }
+    loadOwned();
+    box.replaceChildren(...state.pages.map((page) => {
+      const name = el("input", { class: "link-name", value: page.name, maxlength: "80", "aria-label": "Page name" });
+      name.addEventListener("change", () => patchPage(page, { name: name.value }));
+      name.addEventListener("keydown", (event) => { if (event.key === "Enter") name.blur(); });
+      const open = el("label", { class: "open-toggle" }, el("input", { type: "checkbox", checked: page.active, onchange: (event) => patchPage(page, { active: event.target.checked }) }), el("span", { text: page.active ? "open" : "closed" }));
+      const copyButton = el("button", { class: "btn small", type: "button", onclick: () => copy(copyButton, page.url) }, "copy");
+      const durations = el("div", { class: "chips", role: "group", "aria-label": "Durations" }, DURATION_CHOICES.map((minutes) => el("button", {
+        type: "button", class: "chip-toggle", "aria-pressed": String(page.durations.includes(minutes)), text: length(minutes),
+        onclick: () => {
+          const next = page.durations.includes(minutes) ? page.durations.filter((value) => value !== minutes) : [...page.durations, minutes];
+          if (!next.length) return toast("A page needs at least one duration.", "bad");
+          patchPage(page, { durations: next });
+        },
+      })));
+      const select = (key, choices, label) => {
+        const node = el("select", { class: "select", "aria-label": label }, choices.map(([value, text]) => el("option", { value: String(value), text, selected: page[key] === value })));
+        node.addEventListener("change", () => patchPage(page, { [key]: Number(node.value) }));
+        return node;
+      };
+      const zone = el("select", { class: "select zone", "aria-label": "Time zone" }, ZONES.map((name) => el("option", { value: name, text: name.replace(/_/g, " "), selected: page.timeZone === name })));
+      zone.addEventListener("change", () => patchPage(page, { timeZone: zone.value }));
+      const meet = el("label", { class: "open-toggle" }, el("input", { type: "checkbox", checked: page.meet, onchange: (event) => patchPage(page, { meet: event.target.checked }) }), el("span", { text: "Google Meet link" }));
+      const rotate = el("button", { class: "btn small quiet", type: "button" }, el("span", { text: "new address" }));
+      twoStep(rotate, "new address", "old one stops: click again", async () => setState(await call("POST", `/pages/${page.id}/rotate`)));
+      const remove = el("button", { class: "btn small quiet danger", type: "button" }, el("span", { text: "delete" }));
+      twoStep(remove, "delete", "click again to delete", async () => setState(await call("DELETE", `/pages/${page.id}`)));
+      const when = (entry) => new Date(entry.start).toLocaleString(undefined, { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+      return el("article", { class: `link page${page.active ? "" : " paused"}` },
+        el("div", { class: "link-head" }, name, open),
+        el("div", { class: "url" }, el("code", { text: page.url.replace(/^https?:\/\//, "") }), copyButton, el("a", { class: "btn small", href: page.url, target: "_blank", rel: "noopener", text: "open" })),
+        pageTarget(page),
+        el("h3", { class: "page-label", text: "how long" }), durations,
+        el("h3", { class: "page-label", text: "when" }), hoursEditor(page),
+        el("div", { class: "page-limits" }, zone, select("noticeMinutes", NOTICE_CHOICES, "Notice"), select("daysAhead", AHEAD_CHOICES.map((days) => [days, `up to ${days} days ahead`]), "How far ahead"), select("bufferMinutes", BUFFER_CHOICES.map((minutes) => [minutes, minutes ? `${minutes} min between meetings` : "no gap between meetings"]), "Gap"), meet),
+        el("h3", { class: "page-label", text: "coming up" }),
+        page.upcoming.length ? el("ul", { class: "upcoming" }, page.upcoming.map((entry) => el("li", {}, el("b", { text: when(entry) }), el("span", { text: `${entry.name} · ${entry.email}` })))) : el("p", { class: "empty", text: "No bookings yet." }),
+        el("div", { class: "link-foot" }, el("span", { class: "link-meta", text: page.ready ? "taking bookings" : "not taking bookings yet" }), el("div", { class: "row" }, rotate, remove)));
+    }));
+  }
+
+  async function newPage() {
+    try {
+      setState(await call("POST", "/pages", { timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone }));
+      toast("New booking page: Monday to Friday, 9 to 17, 30 minutes. Change anything below.", "good");
+    } catch (error) { toast(error.message, "bad"); }
+  }
+  $("[data-new-page]").addEventListener("click", newPage);
+
   $("[data-add-link]").addEventListener("submit", async (event) => {
     event.preventDefault();
     const form = event.currentTarget;
@@ -596,7 +743,10 @@
     }
     if (params.get("problem")) toast(params.get("problem"), "bad");
     const connected = state.connections.find((connection) => connection.id === params.get("connected"));
-    if (connected) {
+    if (connected && params.get("write")) {
+      history.replaceState(null, "", "/app#book");
+      toast(`ubercal can now add booked meetings to ${connected.email}.`, "good");
+    } else if (connected) {
       history.replaceState(null, "", "/app#accounts");
       toast(`${connected.email} is connected. Add the calendars you want to merge.`, "good");
       await togglePicker(connected);
