@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ubercal · every calendar, one link</title>
+  <meta name="description" content="Merge your Google calendars and any .ics link into share links that refresh every ten minutes. Each link shows every calendar in full, as busy time, or not at all.">
+  <meta property="og:title" content="ubercal · every calendar, one link">
+  <meta property="og:description" content="Merge your Google calendars and any .ics link into share links that refresh every ten minutes. Each link shows every calendar in full, as busy time, or not at all.">
+  <meta property="og:url" content="https://ubercal.fluxkit.dev/">
+  <meta name="theme-color" content="#000000">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="preload" href="/static/fonts/martian-mono.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="/static/site.css">
+</head>
+<body>
+  <svg width="0" height="0" class="sr" aria-hidden="true">
+    <symbol id="i-mark" viewBox="0 0 30 34"><g fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><line x1="15" y1="2" x2="15" y2="16"/><line x1="15" y1="16" x2="3" y2="31"/><line x1="15" y1="16" x2="27" y2="31"/></g></symbol>
+    <symbol id="i-g" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></symbol>
+    <symbol id="i-arrow" viewBox="0 0 16 16"><path d="M4 12 12 4M6 4h6v6" fill="none" stroke="currentColor" stroke-width="1.5"/></symbol>
+  </svg>
+
+  <div class="wrap">
+    <header class="bar">
+      <a class="crumb" href="https://fluxkit.dev">
+        <svg aria-hidden="true"><use href="#i-mark"/></svg>
+        fluxkit <span>/</span> <strong>ubercal</strong>
+      </a>
+      <nav aria-label="Account">
+        <a href="#how">how it works</a>
+        <a class="btn small" href="/auth/google?next=/app" data-signin><svg class="google-g" aria-hidden="true"><use href="#i-g"/></svg><span data-signin-label>Sign in</span></a>
+      </nav>
+    </header>
+
+    <main>
+      <section class="hero">
+        <div class="hero-copy">
+          <p class="prompt">ubercal</p>
+          <h1 class="wordmark">ubercal</h1>
+          <p class="tagline">Every calendar. One link.</p>
+          <p class="lede">Connect your Google calendars, paste any .ics link, and ubercal keeps them merged into share links that refresh every ten minutes. Each link decides, calendar by calendar, what it shows: everything, only busy time, or nothing.</p>
+          <div class="actions">
+            <a class="btn primary" href="/auth/google?next=/app" data-signin><svg class="google-g" aria-hidden="true"><use href="#i-g"/></svg><span data-signin-label>Sign in with Google</span></a>
+            <a class="btn" href="#how">How it works</a>
+          </div>
+          <p class="fineprint"><b>Read-only.</b> ubercal never writes to your calendars.</p>
+          <p class="notice" data-problem hidden></p>
+        </div>
+
+        <figure class="merge" aria-label="Three calendars, Work, Home and Team rota, merge into one share link that shows Work in full, Home as busy time and leaves the rota out.">
+          <svg viewBox="0 0 520 610" role="img" aria-hidden="true">
+            <defs>
+              <pattern id="hatch" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="7" height="7" fill="#0c0d10"/><line x1="0" y1="0" x2="0" y2="7" stroke="#8a8a8a" stroke-opacity=".55" stroke-width="2.2"/></pattern>
+            </defs>
+            <g font-size="11" fill="#6b6b6b">
+              <g transform="translate(6 0)">
+                <rect width="150" height="118" fill="#07080a" stroke="#1d1f22"/>
+                <circle cx="14" cy="17" r="4" fill="#7aa2ff"/><text x="24" y="21" fill="#ececec" font-weight="600">Work</text><text x="146" y="21" text-anchor="end">google</text>
+                <g transform="translate(12 34)">
+                  <rect x="0" y="6" width="22" height="22" fill="#7aa2ff"/><rect x="26" y="30" width="22" height="16" fill="#7aa2ff"/><rect x="52" y="0" width="22" height="34" fill="#7aa2ff"/><rect x="78" y="40" width="22" height="20" fill="#7aa2ff"/><rect x="104" y="14" width="22" height="18" fill="#7aa2ff"/>
+                </g>
+              </g>
+              <g transform="translate(185 0)">
+                <rect width="150" height="118" fill="#07080a" stroke="#1d1f22"/>
+                <circle cx="14" cy="17" r="4" fill="#2bd9a6"/><text x="24" y="21" fill="#ececec" font-weight="600">Home</text><text x="146" y="21" text-anchor="end">google</text>
+                <g transform="translate(12 34)">
+                  <rect x="0" y="44" width="22" height="18" fill="#2bd9a6"/><rect x="52" y="22" width="22" height="22" fill="#2bd9a6"/><rect x="104" y="0" width="22" height="26" fill="#2bd9a6"/>
+                </g>
+              </g>
+              <g transform="translate(364 0)">
+                <rect width="150" height="118" fill="#07080a" stroke="#1d1f22"/>
+                <circle cx="14" cy="17" r="4" fill="#ffb21e"/><text x="24" y="21" fill="#ececec" font-weight="600">Rota</text><text x="146" y="21" text-anchor="end">.ics</text>
+                <g transform="translate(12 34)">
+                  <rect x="26" y="0" width="22" height="62" fill="#ffb21e"/><rect x="104" y="0" width="22" height="62" fill="#ffb21e"/>
+                </g>
+              </g>
+            </g>
+
+            <path class="conduit" d="M81 126 C81 220 260 214 260 300"/>
+            <path class="conduit" d="M260 126 L260 300"/>
+            <path class="conduit" d="M439 126 C439 220 260 214 260 300" stroke-dasharray="3 6"/>
+            <path class="conduit" d="M260 300 L260 366"/>
+            <path class="pulse a" stroke="#7aa2ff" pathLength="400" d="M81 126 C81 220 260 214 260 300"/>
+            <path class="pulse b" stroke="#2bd9a6" pathLength="400" d="M260 126 L260 300"/>
+            <path class="pulse out" pathLength="300" d="M260 300 L260 366"/>
+            <circle class="junction" cx="260" cy="300" r="6.5"/>
+            <text x="449" y="214" font-size="10" fill="#6b6b6b">off</text>
+            <text x="272" y="214" font-size="10" fill="#6b6b6b">busy</text>
+            <text x="118" y="214" font-size="10" fill="#6b6b6b">full</text>
+
+            <g transform="translate(36 366)">
+              <rect width="448" height="236" fill="#07080a" stroke="#34373c"/>
+              <text x="16" y="26" font-size="10.5" fill="#6b6b6b" letter-spacing="1.5">SHARE LINK</text>
+              <text x="16" y="46" font-size="14" fill="#ececec" font-weight="700">For the team</text>
+              <text x="432" y="26" font-size="10.5" fill="#6b6b6b" text-anchor="end" letter-spacing="1.5">NEXT READ</text>
+              <text x="432" y="50" font-size="20" fill="#ffb21e" text-anchor="end" class="seg" data-countdown>10:00</text>
+              <g transform="translate(16 64)" font-size="9.5" fill="#6b6b6b">
+                <text x="0" y="0">MON</text><text x="60" y="0">TUE</text><text x="120" y="0">WED</text><text x="180" y="0">THU</text><text x="240" y="0">FRI</text><text x="300" y="0">SAT</text><text x="360" y="0">SUN</text>
+                <g transform="translate(0 8)">
+                  <line x1="0" y1="0" x2="416" y2="0" stroke="#1d1f22"/>
+                  <rect x="0" y="10" width="52" height="30" fill="#7aa2ff"/>
+                  <rect x="0" y="62" width="52" height="24" fill="url(#hatch)" stroke="#34373c"/>
+                  <rect x="60" y="44" width="52" height="22" fill="#7aa2ff"/>
+                  <rect x="120" y="4" width="52" height="46" fill="#7aa2ff"/>
+                  <rect x="120" y="54" width="52" height="30" fill="url(#hatch)" stroke="#34373c"/>
+                  <rect x="180" y="58" width="52" height="28" fill="#7aa2ff"/>
+                  <rect x="240" y="18" width="52" height="24" fill="#7aa2ff"/>
+                  <rect x="240" y="4" width="52" height="12" fill="url(#hatch)" stroke="#34373c"/>
+                  <rect x="300" y="30" width="52" height="40" fill="url(#hatch)" stroke="#34373c"/>
+                </g>
+              </g>
+              <g transform="translate(16 182)">
+                <rect width="416" height="38" fill="#0c0d10" stroke="#34373c"/>
+                <text x="12" y="24" font-size="11.5" fill="#6fe3ff">ubercal.fluxkit.dev/feed/k3Qx…7Zp.ics</text>
+                <text x="404" y="24" font-size="10.5" fill="#a8a8a8" text-anchor="end">copy</text>
+              </g>
+            </g>
+          </svg>
+        </figure>
+      </section>
+
+      <section class="readouts" aria-label="ubercal in numbers">
+        <div class="readout"><p class="plate">sync · min</p><span class="digits amber" data-ghost="88" data-count="10">10</span></div>
+        <div class="readout"><p class="plate">calendars</p><span class="digits red" data-ghost="88" data-count="25">25</span></div>
+        <div class="readout"><p class="plate">trackers</p><span class="digits green" data-ghost="88">00</span></div>
+      </section>
+
+      <section class="section" id="how">
+        <p class="label"><b>01</b> how it works</p>
+        <h2>In from everywhere. Out as one calendar, as many times as you need.</h2>
+        <div class="cells">
+          <article class="cell">
+            <span class="num">01</span>
+            <h3>connect</h3>
+            <p>Sign in with Google and pick the calendars to merge, from as many Google accounts as you use. Paste any .ics or webcal link too: a team rota, a booking system, a holiday calendar.</p>
+          </article>
+          <article class="cell">
+            <span class="num">02</span>
+            <h3>choose</h3>
+            <p>Make a share link for each audience. In every link, each calendar is shown in full, as busy time with nothing else, or not at all.</p>
+            <div class="demo demo-switch" aria-hidden="true">
+              <span><i class="show-full cal-1"></i>full</span>
+              <span><i class="show-busy"></i>busy</span>
+              <span><i class="show-off"></i>off</span>
+            </div>
+          </article>
+          <article class="cell">
+            <span class="num">03</span>
+            <h3>subscribe</h3>
+            <p>Add the link to Google Calendar, Apple Calendar or Outlook. ubercal reads your calendars every ten minutes; how often your calendar app asks for the link is up to the app.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="section">
+        <p class="label"><b>02</b> what it keeps</p>
+        <h2>Only what it needs to merge, and nothing it does not.</h2>
+        <ul class="facts">
+          <li><b>read-only</b><span>ubercal asks Google to read your calendars, never to change them.</span></li>
+          <li><b>sealed</b><span>Google's access tokens and your private .ics links are encrypted at rest.</span></li>
+          <li><b>busy means busy</b><span>A calendar shown as busy leaves ubercal with its times only: no titles, places, people, notes or alarms.</span></li>
+          <li><b>secret links</b><span>Every share link is a long random address. Make a new one and the old one stops working at once.</span></li>
+          <li><b>gone means gone</b><span>Delete your account and your calendars, events and links are deleted with it. Full details in the <a href="https://fluxkit.dev/privacy/">privacy policy</a>.</span></li>
+        </ul>
+      </section>
+    </main>
+
+    <footer>
+      <div class="foot">
+        <span>ubercal is a <a href="https://fluxkit.dev">fluxkit</a> tool by meaningtech</span>
+        <nav aria-label="Footer">
+          <a href="https://fluxkit.dev/privacy/">privacy</a>
+          <a href="https://fluxkit.dev/terms/">terms</a>
+          <a href="https://fluxkit.dev">fluxkit.dev</a>
+        </nav>
+      </div>
+    </footer>
+  </div>
+  <script src="/static/landing.js" defer></script>
+</body>
+</html>

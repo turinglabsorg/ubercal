@@ -1,0 +1,22 @@
+{
+  "name": "ubercal",
+  "version": "0.1.0",
+  "description": "Merge Google calendars and ICS links into one live ICS feed",
+  "type": "module",
+  "license": "MIT",
+  "private": true,
+  "engines": {
+    "node": ">=22.13"
+  },
+  "scripts": {
+    "start": "node src/main.js",
+    "test": "node --test --test-concurrency=1 test/*.test.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/turinglabsorg/ubercal.git"
+  },
+  "dependencies": {
+    "mongodb": "7.7.0"
+  }
+}

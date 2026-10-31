@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ubercal</title>
+  <meta name="robots" content="noindex">
+  <meta name="theme-color" content="#000000">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="preload" href="/static/fonts/martian-mono.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="/static/site.css">
+</head>
+<body>
+  <svg width="0" height="0" class="sr" aria-hidden="true">
+    <symbol id="i-mark" viewBox="0 0 30 34"><g fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><line x1="15" y1="2" x2="15" y2="16"/><line x1="15" y1="16" x2="3" y2="31"/><line x1="15" y1="16" x2="27" y2="31"/></g></symbol>
+    <symbol id="i-g" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></symbol>
+    <symbol id="i-sync" viewBox="0 0 16 16"><path d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9M13.5 2.5v3h-3" fill="none" stroke="currentColor" stroke-width="1.4"/></symbol>
+    <symbol id="i-pause" viewBox="0 0 16 16"><path d="M5.5 3v10M10.5 3v10" fill="none" stroke="currentColor" stroke-width="1.6"/></symbol>
+    <symbol id="i-play" viewBox="0 0 16 16"><path d="M5 3l8 5-8 5z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 16 16"><path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8.5h5.8l.6-8.5" fill="none" stroke="currentColor" stroke-width="1.4"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 16 16"><path d="M8 3v10M3 8h10" fill="none" stroke="currentColor" stroke-width="1.6"/></symbol>
+    <symbol id="i-down" viewBox="0 0 16 16"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.5"/></symbol>
+  </svg>
+
+  <div class="wrap">
+    <header class="bar">
+      <a class="crumb" href="/">
+        <svg aria-hidden="true"><use href="#i-mark"/></svg>
+        fluxkit <span>/</span> <strong>ubercal</strong>
+      </a>
+      <nav aria-label="Account">
+        <span class="who" data-who></span>
+        <form method="post" action="/auth/logout"><button class="btn small quiet" type="submit">sign out</button></form>
+      </nav>
+    </header>
+
+    <section class="strip" aria-label="Status">
+      <div class="readout"><p class="plate">next read</p><span class="digits uber" data-ghost="88:88" data-next>--:--</span><span class="meta" data-last></span></div>
+      <div class="readout"><p class="plate">calendars</p><span class="digits red" data-ghost="88" data-calendars>00</span><span class="meta" data-calendars-meta></span></div>
+      <div class="readout"><p class="plate">share links</p><span class="digits green" data-ghost="88" data-links>00</span><span class="meta" data-links-meta></span></div>
+    </section>
+
+    <main class="board">
+      <section class="panel" aria-labelledby="calendars-title">
+        <div class="panel-head"><h2 id="calendars-title"><b>01</b>calendars in</h2></div>
+        <div class="panel-body">
+          <div data-sources></div>
+          <div class="add">
+            <div>
+              <h3>from google</h3>
+              <div class="field" data-accounts></div>
+            </div>
+            <form class="field" data-add-link>
+              <h3>from a link</h3>
+              <label class="sr" for="link-url">Calendar link</label>
+              <input class="input" id="link-url" name="url" type="text" inputmode="url" autocomplete="off" spellcheck="false" placeholder="https://… or webcal://… (.ics)" required>
+              <div class="row">
+                <label class="sr" for="link-name">Name</label>
+                <input class="input" id="link-name" name="name" type="text" autocomplete="off" placeholder="name (optional)" maxlength="80">
+                <button class="btn" type="submit"><svg aria-hidden="true"><use href="#i-plus"/></svg>add</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel" aria-labelledby="links-title">
+        <div class="panel-head"><h2 id="links-title"><b>02</b>share links</h2><button class="btn small" type="button" data-new-link><svg aria-hidden="true"><use href="#i-plus"/></svg>new link</button></div>
+        <div class="panel-body" data-feeds></div>
+      </section>
+    </main>
+
+    <div class="danger-zone">
+      <span>Deleting your account removes every calendar, event and share link it holds, at once.</span>
+      <button class="btn small danger" type="button" data-delete-account>delete account</button>
+    </div>
+
+    <footer>
+      <div class="foot">
+        <span>ubercal is a <a href="https://fluxkit.dev">fluxkit</a> tool by meaningtech</span>
+        <nav aria-label="Footer">
+          <a href="https://fluxkit.dev/privacy/">privacy</a>
+          <a href="https://fluxkit.dev/terms/">terms</a>
+        </nav>
+      </div>
+    </footer>
+  </div>
+  <div class="toast" role="status" aria-live="polite" hidden></div>
+  <script src="/static/app.js" defer></script>
+</body>
+</html>

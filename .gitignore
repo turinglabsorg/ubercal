@@ -1,0 +1,4 @@
+node_modules/
+.local/
+.grog
+.DS_Store
