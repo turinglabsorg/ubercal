@@ -246,7 +246,7 @@ export function createServer(context, config) {
   }
 
   async function startGoogle(res, { purpose, next = "/app", loginHint = "" }) {
-    if (!google.configured) throw new HttpError(503, "Google sign-in is not configured on this server.");
+    if (!google.configured) return redirect(res, `/?problem=${encodeURIComponent("Google sign-in is not open yet. Try again soon.")}`);
     const state = token(18);
     const verifier = randomBytes(48).toString("base64url");
     const flow = signJson(sessionKey, { state, verifier, purpose, next, exp: context.now() + 10 * 60000 });

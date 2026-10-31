@@ -300,6 +300,14 @@ describe("share links", () => {
   });
 });
 
+test("without a Google client the site still runs, and sign-in says it is not open yet", async (t) => {
+  const running = await startApp(t, {});
+  assert.equal((await request(running.base, "/")).status, 200);
+  const start = await request(running.base, "/auth/google");
+  assert.equal(start.status, 302);
+  assert.match(decodeURIComponent(start.headers.get("location")), /^\/\?problem=Google sign-in is not open yet/);
+});
+
 test("only one process runs the pass at a time", async (t) => {
   const running = await startApp(t, {});
   const second = new Syncer(running.app.context);
