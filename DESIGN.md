@@ -74,6 +74,8 @@ Self-hosted in `web/static/fonts/` (OFL, licenses next to the files), Latin subs
 
 **Booking page** (`/book/<token>` or `/<slug>`, `web/book.html`): bar with the crumb, the language flags (Italy, United Kingdom, Spain, France: drawn SVG flags, never emoji or language names, the chosen one tilted and full, the others faded) and the theme switch; on a phone the crumb is only `ubercal` and the flags shrink; a card with the owner (picture or initial), the page name in the display face, its description, duration chips, and two facts (Meet, the guest's time zone); beside it, a card with the month (days with room are yellow outlined tiles, the chosen one ink), the chosen day's times as pill buttons (the chosen one blue), and under them the form (name, email, notes, `book it`). After booking: a green `booked` badge, the date and time, where the invitation went, and the Meet link. One column below 860px.
 
+**On a phone it behaves like an app:** no pinch or double-tap zoom, no grey tap flash, every field at least 16px so iOS never zooms into it, and no field takes the keyboard until it is tapped (picking a time scrolls the form into view). In the hours editor a day's name sits above its time ranges below 480px. The short address field turns whatever is typed into a slug as it goes (`Sara Simeone!` → `sara-simeone`).
+
 ## Motion
 
 - Landing: on load the hero rises in, staggered; light runs down each conduit into the junction and out along the share link; the junction breathes; the readouts count up once; the countdown ticks.

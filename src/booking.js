@@ -17,11 +17,12 @@ export const AHEAD = [7, 14, 30, 60, 90];
 export const BUFFERS = [0, 5, 10, 15, 30];
 const TIME = /^([01]\d|2[0-3]):([0-5]\d)$/;
 // A booking page's own short address: ubercal.fluxkit.dev/<slug>. Words the site uses for itself are not for taking.
-export const SLUG = /^[a-z0-9](?:[a-z0-9-]{1,38}[a-z0-9])$/;
+// A short address is a slug: lowercase letters and numbers, words joined by single dashes, 3 to 40 characters.
+export const SLUG = /^(?=.{3,40}$)[a-z0-9]+(?:-[a-z0-9]+)*$/;
 export const RESERVED = new Set(["app", "api", "auth", "book", "feed", "static", "healthz", "favicon", "robots", "sitemap", "index", "privacy", "terms", "login", "logout", "signin", "signup", "admin", "help", "about", "settings", "account", "accounts", "calendar", "share", "fluxkit", "ubercal", "google", "www", "mail", "support"]);
 
 export function slugProblem(slug) {
-  if (!SLUG.test(slug)) return "Use 3 to 40 lowercase letters, numbers and dashes, starting and ending with a letter or number.";
+  if (typeof slug !== "string" || !SLUG.test(slug)) return "A short address is a slug: 3 to 40 lowercase letters and numbers, words joined by single dashes, no spaces or other characters.";
   if (RESERVED.has(slug)) return "ubercal uses this word for itself: choose another.";
   return "";
 }

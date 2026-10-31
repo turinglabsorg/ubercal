@@ -146,7 +146,8 @@
       el("h3", { text: dayText(date, { weekday: "long", day: "numeric", month: "long" }) }),
       el("div", { class: "time-list" }, (view.slots.get(view.day) || []).map((at) => el("button", {
         type: "button", class: `time-slot${at === view.start ? " chosen" : ""}`, "aria-pressed": String(at === view.start), text: timeText(at),
-        onclick: () => { view.start = at; render(); document.querySelector("[data-form] input")?.focus(); },
+        // The form comes into view; no field takes the keyboard until the guest taps it.
+        onclick: () => { view.start = at; render(); document.querySelector("[data-form]")?.scrollIntoView({ block: "nearest", behavior: "smooth" }); },
       }))));
   }
 

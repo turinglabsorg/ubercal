@@ -245,9 +245,10 @@ export function createServer(context, config) {
       settings.language = body.language;
     }
     if (body.active !== undefined) settings.active = Boolean(body.active);
+    // The API takes a slug as it is, never fixing it up: the app normalizes while the owner types.
     if (body.slug !== undefined) {
-      const slug = String(body.slug || "").trim().toLowerCase();
-      if (!slug) settings.slug = null;
+      const slug = body.slug === null ? "" : body.slug;
+      if (slug === "") settings.slug = null;
       else {
         const problem = slugProblem(slug);
         if (problem) throw new HttpError(400, problem);
@@ -681,7 +682,7 @@ export function createServer(context, config) {
       }
     }
     if (area === "slugs" && id && method === "GET") {
-      const slug = String(id).toLowerCase();
+      const slug = String(id);
       const problem = slugProblem(slug);
       const taken = !problem && await db.pages.findOne({ slug, userId: { $ne: user._id } });
       return send(res, 200, { slug, available: !problem && !taken, problem: problem || (taken ? "Someone already uses this address." : "") });

@@ -71,7 +71,8 @@
 }
 
 * { box-sizing: border-box; }
-html { -webkit-text-size-adjust: 100%; }
+/* Like an app: no pinch or double-tap zoom, no grey flash on a tap. */
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; touch-action: pan-x pan-y; -webkit-tap-highlight-color: transparent; }
 html, body { margin: 0; }
 body {
   min-height: 100vh;
@@ -777,4 +778,15 @@ footer { margin-top: clamp(4rem, 9vw, 6.5rem); border-top: 2px solid var(--line)
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
   .pulse { opacity: 0; }
+}
+
+/* On a touch screen every field is at least 16px: iOS zooms into anything smaller when it takes the keyboard. */
+@media (pointer: coarse) {
+  .input, .select, .time, .slug-input { font-size: 16px; }
+}
+/* On a phone a day's name sits above its hours, so two 16px times and the bin fit the width. */
+@media (max-width: 480px) {
+  .day-row { grid-template-columns: minmax(0, 1fr); gap: .35rem; }
+  .ranges { min-height: 0; }
+  .time { min-width: 0; }
 }

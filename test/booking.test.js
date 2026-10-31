@@ -139,7 +139,12 @@ describe("booking pages", () => {
     const { google, running, cookie, page } = await owner(t);
     assert.equal((await api(running, cookie, "GET", "/slugs/ada")).data.available, true);
     assert.equal((await api(running, cookie, "GET", "/slugs/app")).data.available, false);
-    const named = await api(running, cookie, "PATCH", `/pages/${page.id}`, { slug: "Ada" });
+    // The API checks the slug as it comes, and never fixes it up.
+    for (const bad of ["Ada", "ada lovelace", "caffè", "ada--lovelace", "ada-", "ada!", "a".repeat(41)]) {
+      assert.equal((await api(running, cookie, "PATCH", `/pages/${page.id}`, { slug: bad })).status, 400, bad);
+      assert.equal((await api(running, cookie, "GET", `/slugs/${encodeURIComponent(bad)}`)).data.available, false, bad);
+    }
+    const named = await api(running, cookie, "PATCH", `/pages/${page.id}`, { slug: "ada" });
     assert.equal(named.status, 200);
     assert.equal(named.data.pages[0].url, `${running.origin}/ada`);
     const short = await request(running.base, "/ada");

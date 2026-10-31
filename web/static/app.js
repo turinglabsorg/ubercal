@@ -714,7 +714,16 @@
     }));
   }
 
-  /** The page's own short address: typed, checked while typing, saved on demand. */
+  // What anyone types becomes a slug: accents dropped, lowercase, every run of other characters one dash.
+  const SPELLED = { "ß": "ss", "æ": "ae", "œ": "oe", "ø": "o", "đ": "d", "ł": "l", "þ": "th" };
+  function slugify(text, finished = false) {
+    let slug = String(text).toLowerCase().replace(/[ßæœøđłþ]/g, (letter) => SPELLED[letter]).normalize("NFKD").replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9]+/g, "-").replace(/^-+/, "").slice(0, 40);
+    if (finished) slug = slug.replace(/-+$/, "");
+    return slug;
+  }
+
+  /** The page's own short address: normalized and checked while typing, saved on demand. */
   function addressEditor(page) {
     const host = location.host;
     const input = el("input", { class: "slug-input", value: page.slug, placeholder: "your-name", maxlength: "40", spellcheck: "false", autocomplete: "off", "aria-label": "Short address" });
@@ -722,7 +731,10 @@
     const save = el("button", { class: "btn small", type: "button", disabled: true }, el("span", { text: "save" }));
     let timer = null;
     input.addEventListener("input", () => {
-      const slug = input.value.trim().toLowerCase();
+      // A dash may trail while the next word is being typed; it goes when the field is left or saved.
+      const typed = slugify(input.value);
+      if (typed !== input.value) input.value = typed;
+      const slug = slugify(typed, true);
       save.disabled = true;
       clearTimeout(timer);
       if (!slug || slug === page.slug) { status.textContent = slug ? "this is the page's address" : "pick a short address"; status.className = "slug-status"; save.disabled = !page.slug || slug === page.slug; return; }
@@ -731,14 +743,15 @@
       timer = setTimeout(async () => {
         try {
           const answer = await call("GET", `/slugs/${encodeURIComponent(slug)}`);
-          if (input.value.trim().toLowerCase() !== slug) return;
+          if (slugify(input.value, true) !== slug) return;
           status.textContent = answer.available ? "free: it's yours if you save" : answer.problem;
           status.className = `slug-status ${answer.available ? "ok" : "bad"}`;
           save.disabled = !answer.available;
         } catch (error) { status.textContent = error.message; status.className = "slug-status bad"; }
       }, 300);
     });
-    save.addEventListener("click", () => patchPage(page, { slug: input.value.trim().toLowerCase() }));
+    input.addEventListener("blur", () => { input.value = slugify(input.value, true); });
+    save.addEventListener("click", () => { input.value = slugify(input.value, true); patchPage(page, { slug: input.value }); });
     return el("div", { class: "slug" }, el("label", { class: "slug-field" }, el("span", { class: "slug-host", text: `${host}/` }), input), save, status);
   }
 
