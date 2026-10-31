@@ -169,7 +169,7 @@ export async function startApp(t, { google, allowPrivate = true, publicHost = "1
     googleClientId: google ? "client-id" : "", googleClientSecret: google ? "client-secret" : "",
     googleAuthUrl: google ? `${google.base}/auth` : "", googleTokenUrl: google ? `${google.base}/token` : "",
     googleApiBase: google ? `${google.base}/calendar/v3` : "", googleRevokeUrl: google ? `${google.base}/revoke` : "",
-    syncMinutes: 10, allowPrivate, webDir: new URL("../web", import.meta.url).pathname,
+    syncMinutes: 5, allowPrivate, webDir: new URL("../web", import.meta.url).pathname,
   };
   const logs = [];
   const app = await createApp(settings, { now: () => clock.now, log: (...parts) => logs.push(parts.join(" ")) });

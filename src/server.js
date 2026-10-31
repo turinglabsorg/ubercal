@@ -11,7 +11,7 @@ import { buildFeed, REFRESH_MINUTES, SHOWS } from "./feeds.js";
 import { CALENDAR_SCOPES, GoogleError, SIGN_IN_SCOPES } from "./google.js";
 import { normalizeUrl } from "./net.js";
 import { open, seal, signJson, token, verifyJson } from "./secrets.js";
-import { accessToken, rebuildFeeds, syncSource } from "./sync.js";
+import { accessToken, freshenFeed, rebuildFeeds, syncSource } from "./sync.js";
 
 // The Fluxkit session: every Fluxkit tool on a fluxkit.dev subdomain reads the same signed cookie.
 const SESSION = "fluxkit_session";
@@ -297,8 +297,10 @@ export function createServer(context, config) {
   }
 
   async function serveFeed(req, res, feedToken) {
-    const feed = await db.feeds.findOne({ token: feedToken });
+    let feed = await db.feeds.findOne({ token: feedToken });
     if (!feed) return send(res, 404, "No calendar at this link. It may have been replaced by a new link.");
+    // A calendar app is asking now: its calendars are read first when the last read is over a minute old.
+    if (await freshenFeed(context, feed)) feed = (await db.feeds.findOne({ _id: feed._id })) || feed;
     let built = feed;
     if (!feed.ics) built = (await buildFeed(db, feed, context.now())) || feed;
     if (!built.ics) return send(res, 503, "This calendar is not ready yet.");

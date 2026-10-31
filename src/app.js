@@ -26,7 +26,7 @@ export function settingsFromEnv(env = process.env) {
     googleTokenUrl: env.UBERCAL_GOOGLE_TOKEN_URL || "",
     googleApiBase: env.UBERCAL_GOOGLE_API_BASE || "",
     googleRevokeUrl: env.UBERCAL_GOOGLE_REVOKE_URL || "",
-    syncMinutes: Number(env.UBERCAL_SYNC_MINUTES) || 10,
+    syncMinutes: Number(env.UBERCAL_SYNC_MINUTES) || 5,
     allowPrivate: env.UBERCAL_ALLOW_PRIVATE_LINKS === "1",
     webDir: env.UBERCAL_WEB_DIR || join(ROOT, "web"),
   };

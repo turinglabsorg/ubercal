@@ -100,14 +100,14 @@ describe("calendar links", () => {
     assert.equal(response.headers.get("content-type"), "text/calendar; charset=utf-8");
     assert.match(text, /^BEGIN:VCALENDAR\r\n/);
     assert.match(text, /X-WR-CALNAME:All my calendars/);
-    assert.match(text, /REFRESH-INTERVAL;VALUE=DURATION:PT10M/);
+    assert.match(text, /REFRESH-INTERVAL;VALUE=DURATION:PT5M/);
     assert.match(text, /BEGIN:VTIMEZONE\r\nTZID:Europe\/Rome/);
     assert.match(text, /SUMMARY:Support rota/);
     const again = await request(running.base, new URL(feed.url).pathname, { headers: { "If-None-Match": response.headers.get("etag") } });
     assert.equal(again.status, 304);
   });
 
-  test("the ten-minute pass reads a changed link, and an unchanged one costs a 304", async (t) => {
+  test("the five-minute pass reads a changed link, and an unchanged one costs a 304", async (t) => {
     const google = await fakeGoogle();
     const host = await fakeHost();
     t.after(google.close);
@@ -118,12 +118,31 @@ describe("calendar links", () => {
     const { data } = await api(running, cookie, "POST", "/sources", { kind: "link", url, name: "Rota" });
     const feed = data.state.feeds[0];
     host.serve("/team.ics", ics(ROTA, vevent("UID:offsite@team", "DTSTART;VALUE=DATE:20261120", "SUMMARY:Offsite")));
-    running.clock.now += 10 * 60000;
+    running.clock.now += 5 * 60000;
     assert.equal(await running.app.syncer.runOnce(), true);
     assert.match((await feedText(running, feed)).text, /SUMMARY:Offsite/);
-    running.clock.now += 10 * 60000;
+    running.clock.now += 5 * 60000;
     await running.app.syncer.runOnce();
     assert.equal(host.hits.at(-1), "/team.ics 304");
+  });
+
+  test("a calendar app asking for a link gets its calendars read first, at most once a minute", async (t) => {
+    const google = await fakeGoogle();
+    const host = await fakeHost();
+    t.after(google.close);
+    t.after(host.close);
+    const running = await startApp(t, { google });
+    const cookie = await signIn(running, google, ADA);
+    const url = host.serve("/team.ics", ics(ROTA));
+    const feed = (await api(running, cookie, "POST", "/sources", { kind: "link", url, name: "Rota" })).data.state.feeds[0];
+    host.serve("/team.ics", ics(ROTA, vevent("UID:launch@team", "DTSTART;VALUE=DATE:20261105", "SUMMARY:Launch day")));
+    running.clock.now += 2 * 60000;
+    assert.match((await feedText(running, feed)).text, /SUMMARY:Launch day/);
+    const reads = host.hits.length;
+    host.serve("/team.ics", ics(ROTA, vevent("UID:retro@team", "DTSTART;VALUE=DATE:20261106", "SUMMARY:Retro")));
+    running.clock.now += 30000;
+    assert.doesNotMatch((await feedText(running, feed)).text, /SUMMARY:Retro/);
+    assert.equal(host.hits.length, reads);
   });
 
   test("a link that is not a calendar, is gone, or points inside our network is not kept", async (t) => {
@@ -190,7 +209,7 @@ describe("Google calendars", () => {
     await api(running, cookie, "POST", "/sources", { kind: "google", connectionId: connection.id, calendarId: "ada@example.com" });
     google.put("ada@example.com", { id: "dentist", status: "cancelled" });
     google.put("ada@example.com", { id: "review", iCalUID: "review@google.com", status: "confirmed", summary: "Design review", start: { dateTime: "2026-11-06T10:00:00Z" }, end: { dateTime: "2026-11-06T11:00:00Z" } });
-    running.clock.now += 10 * 60000;
+    running.clock.now += 5 * 60000;
     await running.app.syncer.runOnce();
     let { text } = await feedText(running, feed);
     assert.doesNotMatch(text, /Dentist/);
@@ -198,7 +217,7 @@ describe("Google calendars", () => {
     const source = await running.app.db.sources.findOne({});
     google.state.gone.add(source.syncToken);
     google.put("ada@example.com", { id: "retro", iCalUID: "retro@google.com", status: "confirmed", summary: "Retro", start: { dateTime: "2026-11-07T10:00:00Z" }, end: { dateTime: "2026-11-07T11:00:00Z" } });
-    running.clock.now += 10 * 60000;
+    running.clock.now += 5 * 60000;
     await running.app.syncer.runOnce();
     ({ text } = await feedText(running, feed));
     assert.match(text, /Retro/);
@@ -211,7 +230,7 @@ describe("Google calendars", () => {
     await api(running, cookie, "POST", "/sources", { kind: "google", connectionId: connection.id, calendarId: "ada@example.com" });
     google.state.refresh.clear();
     await running.app.db.connections.updateOne({}, { $set: { accessExpiresAt: new Date(0) } });
-    running.clock.now += 10 * 60000;
+    running.clock.now += 5 * 60000;
     await running.app.syncer.runOnce();
     const me = (await api(running, cookie, "GET", "/me")).data;
     assert.equal(me.connections[0].status, "revoked");
@@ -317,6 +336,6 @@ test("only one process runs the pass at a time", async (t) => {
   const second = new Syncer(running.app.context);
   assert.equal(await running.app.syncer.runOnce(), true);
   assert.equal(await second.runOnce(), false);
-  running.clock.now += 10 * 60000;
+  running.clock.now += 5 * 60000;
   assert.equal(await second.runOnce(), true);
 });

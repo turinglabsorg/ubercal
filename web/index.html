@@ -4,9 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>ubercal · every calendar, one link</title>
-  <meta name="description" content="Merge your Google calendars and any .ics link into share links that refresh every ten minutes. Each link shows every calendar in full, as busy time, or not at all.">
+  <meta name="description" content="Merge your Google calendars and any .ics link into share links that refresh every five minutes. Each link shows every calendar in full, as busy time, or not at all.">
   <meta property="og:title" content="ubercal · every calendar, one link">
-  <meta property="og:description" content="Merge your Google calendars and any .ics link into share links that refresh every ten minutes. Each link shows every calendar in full, as busy time, or not at all.">
+  <meta property="og:description" content="Merge your Google calendars and any .ics link into share links that refresh every five minutes. Each link shows every calendar in full, as busy time, or not at all.">
   <meta property="og:url" content="https://ubercal.fluxkit.dev/">
   <meta name="theme-color" content="#fffaf0" media="(prefers-color-scheme: light)">
   <meta name="theme-color" content="#121117" media="(prefers-color-scheme: dark)">
@@ -32,9 +32,9 @@
         fluxkit <span>/</span> <strong>ubercal</strong>
       </a>
       <nav aria-label="Account">
-        <button class="theme" type="button" data-theme-toggle aria-label="Switch between light and dark"><svg class="sun" aria-hidden="true"><use href="#i-sun"/></svg><svg class="moon" aria-hidden="true"><use href="#i-moon"/></svg></button>
         <a href="#how">how it works</a>
-        <a class="btn small" href="/auth/google?next=/app" data-signin><svg class="google-g" aria-hidden="true"><use href="#i-g"/></svg><span data-signin-label>Sign in</span></a>
+        <a class="btn small bar-signin" href="/auth/google?next=/app" data-signin><svg class="google-g" aria-hidden="true"><use href="#i-g"/></svg><span data-signin-label>Sign in</span></a>
+        <button class="theme" type="button" data-theme-toggle aria-label="Switch between light and dark"><svg class="sun" aria-hidden="true"><use href="#i-sun"/></svg><svg class="moon" aria-hidden="true"><use href="#i-moon"/></svg></button>
       </nav>
     </header>
 
@@ -44,7 +44,7 @@
           <p class="prompt">ubercal</p>
           <h1 class="wordmark">uber<span>cal</span></h1>
           <p class="tagline">Every calendar. <mark>One link.</mark></p>
-          <p class="lede">Connect your Google calendars, paste any .ics link, and ubercal keeps them merged into share links that refresh every ten minutes. Each link decides, calendar by calendar, what it shows: everything, only busy time, or nothing.</p>
+          <p class="lede">Connect your Google calendars, paste any .ics link, and ubercal keeps them merged into share links that refresh every five minutes. Each link decides, calendar by calendar, what it shows: everything, only busy time, or nothing.</p>
           <div class="actions">
             <a class="btn primary" href="/auth/google?next=/app" data-signin><svg class="google-g" aria-hidden="true"><use href="#i-g"/></svg><span data-signin-label>Sign in with Google</span></a>
             <a class="btn" href="#how">How it works</a>
@@ -131,7 +131,7 @@
       </section>
 
       <section class="readouts" aria-label="ubercal in numbers">
-        <div class="readout"><p class="plate">sync · min</p><span class="digits" data-count="10">10</span></div>
+        <div class="readout"><p class="plate">sync · min</p><span class="digits" data-count="5">05</span></div>
         <div class="readout"><p class="plate">calendars</p><span class="digits" data-count="25">25</span></div>
         <div class="readout"><p class="plate">trackers</p><span class="digits">00</span></div>
       </section>
@@ -158,7 +158,7 @@
           <article class="cell">
             <span class="num">03</span>
             <h3>subscribe</h3>
-            <p>Add the link to Google Calendar, Apple Calendar or Outlook. ubercal reads your calendars every ten minutes; how often your calendar app asks for the link is up to the app.</p>
+            <p>Add the link to Google Calendar, Apple Calendar or Outlook. ubercal reads your calendars every five minutes, and again the moment your calendar app asks for the link.</p>
           </article>
         </div>
       </section>

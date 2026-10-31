@@ -6,7 +6,7 @@ Every calendar, one link. ubercal merges Google calendars and any `.ics` / `webc
 - **busy**: only when you are busy, with no title, place, people, notes or alarms;
 - **off**: nothing.
 
-ubercal reads every calendar again every ten minutes (Google through its sync tokens, links through their ETags) and keeps each share link built and cached, so a calendar app asking for it costs one database read.
+ubercal reads every calendar again every five minutes (Google through its sync tokens, links through their ETags) and keeps each share link built and cached. When a calendar app asks for a link whose calendars were read over a minute ago, they are read again first, for at most a few seconds; past that the app gets the copy ready.
 
 It is a [Fluxkit](https://fluxkit.dev) tool, live at **https://ubercal.fluxkit.dev**. Sign-in is the shared Fluxkit Google sign-in; the [privacy policy](https://fluxkit.dev/privacy/) and [terms](https://fluxkit.dev/terms/) live on fluxkit.dev.
 
@@ -40,7 +40,7 @@ npm start
 | `FLUXKIT_COOKIE_DOMAIN` | `fluxkit.dev` in production, so one sign-in serves every Fluxkit subdomain. |
 | `UBERCAL_DATA_KEY` | Seals Google tokens and pasted links. Losing it means reconnecting every account. |
 | `FLUXKIT_GOOGLE_CLIENT_ID`, `FLUXKIT_GOOGLE_CLIENT_SECRET` | The Fluxkit Google OAuth client (scopes `openid email profile`, and `calendar.readonly` when someone connects their calendars). Without them the site runs and Google is off. |
-| `UBERCAL_SYNC_MINUTES` | The pass interval (default 10). |
+| `UBERCAL_SYNC_MINUTES` | The pass interval (default 5). |
 
 `bin/run.sh` starts it with the secrets injected by [hush](https://github.com/turinglabsorg/hush), by name, and reads the other settings from `~/.ubercal/env`.
 

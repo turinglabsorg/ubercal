@@ -360,6 +360,10 @@ footer { margin-top: clamp(4rem, 9vw, 6.5rem); border-top: 2px solid var(--line)
   .facts li { grid-template-columns: minmax(0, 1fr); gap: .4rem; }
 }
 @media (max-width: 560px) {
+  /* On a phone the bar is one row: the name on the left, the day/night switch on the right. */
+  .bar { flex-wrap: nowrap; }
+  .bar nav { flex-wrap: nowrap; gap: .6rem; }
+  .bar-signin { display: none; }
   .readouts { gap: .6rem; }
   .readout { padding: .75rem .7rem .85rem; }
   .plate { font-size: 10px; letter-spacing: .04em; }

@@ -1,12 +1,13 @@
 /**
  * The sync: every source read again (a link through its ETag, a Google calendar
  * through its sync token), then every feed whose calendars changed rebuilt. It runs
- * every ten minutes in the resident process, and at once for a source just added.
+ * every five minutes in the resident process, at once for a source just added, and
+ * when a calendar app asks for a link whose calendars were read over a minute ago.
  */
 import { createHash, randomUUID } from "node:crypto";
 import { calendars, prop, serialize } from "./ics.js";
 import { endsAt, identity } from "./events.js";
-import { buildFeed } from "./feeds.js";
+import { buildFeed, feedSources } from "./feeds.js";
 import { eventRecord, GoogleError } from "./google.js";
 import { fetchCalendar } from "./net.js";
 import { open, seal } from "./secrets.js";
@@ -133,8 +134,15 @@ function friendly(error) {
   return "This calendar could not be read.";
 }
 
-/** One source read now; its status says how it went. Whether its events changed. */
-export async function syncSource(context, source) {
+/** One source read now; its status says how it went. Whether its events changed. A source already being read is not read twice. */
+export function syncSource(context, source) {
+  const reading = (context.reading ||= new Map());
+  const key = String(source._id);
+  if (!reading.has(key)) reading.set(key, readSource(context, source).finally(() => reading.delete(key)));
+  return reading.get(key);
+}
+
+async function readSource(context, source) {
   const { db, now } = context;
   try {
     const changed = source.kind === "google" ? await syncGoogle(context, source) : await syncLink(context, source);
@@ -145,6 +153,26 @@ export async function syncSource(context, source) {
     await db.sources.updateOne({ _id: source._id }, { $set: { status: "error", error: friendly(error), syncedAt: new Date(now()) } });
     return false;
   }
+}
+
+/**
+ * Before a feed goes to a calendar app: its calendars read over `maxAgeMs` ago are
+ * read again, for at most `budgetMs`; past that the app gets the copy ready and the
+ * reading finishes on its own. Whether the feed was refreshed in time.
+ */
+export async function freshenFeed(context, feed, { maxAgeMs = 60000, budgetMs = 8000 } = {}) {
+  const { now } = context;
+  const stale = (await feedSources(context.db, feed)).map((entry) => entry.source).filter((source) => !source.syncedAt || now() - source.syncedAt.getTime() > maxAgeMs);
+  if (!stale.length) return false;
+  const work = Promise.all(stale.map((source) => syncSource(context, source))).then(async (changed) => {
+    if (changed.some(Boolean)) await rebuildFeeds(context, [feed.userId]);
+    return true;
+  });
+  work.catch((error) => context.log?.("feed refresh failed", error?.message || error));
+  let timer;
+  const done = await Promise.race([work, new Promise((resolve) => { timer = setTimeout(() => resolve(false), budgetMs); })]);
+  clearTimeout(timer);
+  return done;
 }
 
 /** Rebuild the feeds of these people (or the stale and marked ones). */
@@ -161,9 +189,9 @@ async function pool(items, size, work) {
   }));
 }
 
-/** The resident ten-minute loop, held by one process at a time through a lease in Mongo. */
+/** The resident five-minute loop, held by one process at a time through a lease in Mongo. */
 export class Syncer {
-  constructor(context, { intervalMs = 10 * 60000 } = {}) {
+  constructor(context, { intervalMs = 5 * 60000 } = {}) {
     this.context = context;
     this.intervalMs = intervalMs;
     this.owner = randomUUID();

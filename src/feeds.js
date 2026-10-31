@@ -11,7 +11,7 @@ import { vtimezone } from "./tz.js";
 const DAY = 86400000;
 // A Mongo document holds 16 MB; a feed this large is not one anyone can subscribe to anyway.
 const MAX_FEED_BYTES = 15 * 1024 * 1024;
-export const REFRESH_MINUTES = 10;
+export const REFRESH_MINUTES = 5;
 
 export const SHOWS = ["full", "busy", "hidden"];
 
