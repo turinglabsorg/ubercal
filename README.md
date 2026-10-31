@@ -6,6 +6,10 @@ Every calendar, one link. ubercal merges Google calendars and any `.ics` / `webc
 - **busy**: only when you are busy, with no title, place, people, notes or alarms;
 - **off**: nothing.
 
+A share link also has its own dates: by default it shows what happens from the day it is made, with no end, and any start and end can be chosen, in the past or the future. A series is cut to those dates (it starts again at its first occurrence inside and ends with the link), so a calendar app never shows what the link leaves out.
+
+The app has three tabs: **accounts** (the Google accounts and links merged), **calendar** (the merged calendar by week, month or agenda, or as any share link shows it) and **share** (the links).
+
 ubercal reads every calendar again every five minutes (Google through its sync tokens, links through their ETags) and keeps each share link built and cached. When a calendar app asks for a link whose calendars were read over a minute ago, they are read again first, for at most a few seconds; past that the app gets the copy ready.
 
 It is a [Fluxkit](https://fluxkit.dev) tool, live at **https://ubercal.fluxkit.dev**. Sign-in is the shared Fluxkit Google sign-in; the [privacy policy](https://fluxkit.dev/privacy/) and [terms](https://fluxkit.dev/terms/) live on fluxkit.dev.
@@ -16,6 +20,7 @@ It is a [Fluxkit](https://fluxkit.dev) tool, live at **https://ubercal.fluxkit.d
 - **MongoDB** holds people, Google connections, calendars, their events and the share links with their last built text. The driver is the only dependency.
 - **Calendars are kept whole.** Events from a link are stored as their own VEVENT text, so repeat rules, alarms and vendor properties survive. Google events are written as VEVENTs with their series, moved occurrences (`RECURRENCE-ID`) and cancelled ones (`EXDATE`). Declined invitations and working-location markers are left out.
 - **Time zones** come from the runtime's own tz database: every TZID a feed names gets a VTIMEZONE.
+- **The calendar view** expands series with [ical.js](https://github.com/kewisch/ical.js) from the same text a share link serves, so what the owner sees is what the link shows.
 - **Merging.** An event two calendars share (an invitation seen from two accounts) appears once, from a calendar shown in full when there is one.
 - **Safety.** Google refresh tokens and pasted links are sealed with AES-256-GCM. A pasted link may only reach public addresses: every address a name resolves to is checked when the connection opens, and on every redirect. Share links are 192-bit random addresses that can be replaced at any time.
 

@@ -6,6 +6,7 @@ import { eventRecord, exdateLine } from "../src/google.js";
 import { fetchCalendar, isPublicAddress, normalizeUrl } from "../src/net.js";
 import { keyFrom, open, seal, signJson, verifyJson } from "../src/secrets.js";
 import { instantOf, offsetAt, vtimezone, zonedToUtc } from "../src/tz.js";
+import { clipEvent, feedWindow } from "../src/window.js";
 
 const bytes = (text) => new TextEncoder().encode(text).length;
 
@@ -139,5 +140,30 @@ describe("secrets", () => {
     assert.deepEqual(verifyJson(key, signed, 1000), { sub: "1", exp: 2000 });
     assert.equal(verifyJson(key, signed, 3000), null);
     assert.equal(verifyJson(key, `${signed}x`, 1000), null);
+  });
+});
+
+describe("a share link's dates", () => {
+  const series = ["BEGIN:VEVENT", "UID:s@x", "DTSTART;TZID=Europe/Rome:20250106T093000", "DTEND;TZID=Europe/Rome:20250106T094500", "RRULE:FREQ=WEEKLY;BYDAY=MO;COUNT=100", "SUMMARY:Standup", "END:VEVENT"].join("\r\n");
+  const zone = (tzid) => vtimezone(tzid);
+  const window = { from: Date.UTC(2026, 10, 1), until: Date.UTC(2026, 11, 1) };
+
+  test("a counted series keeps only the occurrences inside", () => {
+    const text = clipEvent(series, window, zone);
+    assert.match(text, /DTSTART;TZID=Europe\/Rome:20261102T093000/);
+    assert.match(text, /RRULE:FREQ=WEEKLY;BYDAY=MO;COUNT=5/);
+  });
+
+  test("events and series wholly outside are left out; inside ones are untouched", () => {
+    assert.equal(clipEvent(series.replace("COUNT=100", "COUNT=3"), window, zone), null);
+    const single = ["BEGIN:VEVENT", "UID:a", "DTSTART:20261110T080000Z", "DTEND:20261110T090000Z", "END:VEVENT"].join("\r\n");
+    assert.equal(clipEvent(single, window), single);
+    assert.equal(clipEvent(single, { from: Date.UTC(2026, 10, 11), until: null }), null);
+    assert.equal(clipEvent(single, { from: null, until: Date.UTC(2026, 10, 10) }), null);
+  });
+
+  test("links from before dates existed keep their past days", () => {
+    assert.deepEqual(feedWindow({ pastDays: 30 }, Date.UTC(2026, 9, 31)), { from: Date.UTC(2026, 9, 1), until: null });
+    assert.deepEqual(feedWindow({ from: null, until: null }), { from: null, until: null });
   });
 });

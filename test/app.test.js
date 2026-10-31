@@ -305,16 +305,42 @@ describe("share links", () => {
     assert.match((await feedText(running, all)).text, /SUMMARY:Doctor/);
   });
 
-  test("a link goes back as far as asked, and a new link replaces the old one", async (t) => {
+  test("a link shows its own dates: from the day it is made by default, then any start and end", async (t) => {
     const { running, cookie } = await twoCalendars(t);
     const feed = (await api(running, cookie, "GET", "/me")).data.feeds[0];
+    assert.equal(feed.from, "2026-10-31T00:00:00.000Z");
+    assert.equal(feed.until, null);
     assert.doesNotMatch((await feedText(running, feed)).text, /Ancient history/);
-    await api(running, cookie, "PATCH", `/feeds/${feed.id}`, { pastDays: 0 });
+    assert.equal((await api(running, cookie, "PATCH", `/feeds/${feed.id}`, { from: "2026-01-01T00:00:00Z" })).status, 200);
     assert.match((await feedText(running, feed)).text, /Ancient history/);
+    await api(running, cookie, "PATCH", `/feeds/${feed.id}`, { from: null, until: "2026-11-04T00:00:00Z" });
+    const { text } = await feedText(running, feed);
+    assert.match(text, /Board meeting/);
+    assert.doesNotMatch(text, /SUMMARY:Doctor/);
+    assert.equal((await api(running, cookie, "PATCH", `/feeds/${feed.id}`, { from: "2026-12-01T00:00:00Z", until: "2026-11-01T00:00:00Z" })).status, 400);
+  });
+
+  test("a new address replaces the old one", async (t) => {
+    const { running, cookie } = await twoCalendars(t);
+    const feed = (await api(running, cookie, "GET", "/me")).data.feeds[0];
     const rotated = (await api(running, cookie, "POST", `/feeds/${feed.id}/rotate`)).data.feeds[0];
     assert.notEqual(rotated.url, feed.url);
     assert.equal((await feedText(running, feed)).response.status, 404);
     assert.equal((await feedText(running, rotated)).response.status, 200);
+  });
+
+  test("a series older than the link starts at its first occurrence inside, and ends with the link", async (t) => {
+    const google = await fakeGoogle();
+    const host = await fakeHost();
+    t.after(google.close);
+    t.after(host.close);
+    const running = await startApp(t, { google });
+    const cookie = await signIn(running, google, ADA);
+    const old = vevent("UID:weekly@team", "DTSTART;TZID=Europe/Rome:20250106T093000", "DTEND;TZID=Europe/Rome:20250106T094500", "RRULE:FREQ=WEEKLY;BYDAY=MO", "SUMMARY:Weekly");
+    const feed = (await api(running, cookie, "POST", "/sources", { kind: "link", url: host.serve("/weekly.ics", ics(ROME, old)) })).data.state.feeds[0];
+    await api(running, cookie, "PATCH", `/feeds/${feed.id}`, { until: "2026-12-01T00:00:00Z" });
+    const { text } = await feedText(running, feed);
+    assert.match(text, /DTSTART;TZID=Europe\/Rome:20261102T093000\r\nDTEND;TZID=Europe\/Rome:20261102T094500\r\nRRULE:FREQ=WEEKLY;BYDAY=MO;UNTIL=20261130T235959Z/);
   });
 
   test("nobody reaches another person's calendars or links", async (t) => {

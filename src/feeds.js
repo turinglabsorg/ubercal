@@ -7,8 +7,8 @@ import { escapeText, parse, prop, serialize } from "./ics.js";
 import { busyOnly, isFreeOrCancelled, zonesOf } from "./events.js";
 import { exdateLine } from "./google.js";
 import { vtimezone } from "./tz.js";
+import { clipEvent, feedWindow } from "./window.js";
 
-const DAY = 86400000;
 // A Mongo document holds 16 MB; a feed this large is not one anyone can subscribe to anyway.
 const MAX_FEED_BYTES = 15 * 1024 * 1024;
 export const REFRESH_MINUTES = 5;
@@ -48,7 +48,8 @@ function renameZones(text, renames) {
  */
 export async function renderFeed(db, feed, now = Date.now(), { annotate = false } = {}) {
   const sources = await feedSources(db, feed);
-  const cutoff = feed.pastDays ? now - feed.pastDays * DAY : null;
+  const window = feedWindow(feed, now);
+  const zoneText = (tzid) => zones.get(tzid) || vtimezone(tzid, now);
   const zones = new Map();
   const taken = new Set();
   const events = [];
@@ -75,9 +76,11 @@ export async function renderFeed(db, feed, now = Date.now(), { annotate = false 
     const ordered = docs.filter((doc) => doc.text).sort((a, b) => (a.text.includes("\nRECURRENCE-ID") ? 1 : 0) - (b.text.includes("\nRECURRENCE-ID") ? 1 : 0));
     for (const doc of ordered) {
       if (taken.has(doc.uid) || hidden.has(doc.uid)) continue;
-      if (cutoff && doc.endsAt && doc.endsAt.getTime() < cutoff) continue;
+      if (window.from !== null && doc.endsAt && doc.endsAt.getTime() < window.from) continue;
       let text = withExdates(doc.text, (cancelled.get(doc.key) || []).map((original) => exdateLine(original, doc.kind)).filter(Boolean));
       text = renameZones(text, renames);
+      text = clipEvent(text, window, zoneText);
+      if (!text) continue;
       const override = /\nRECURRENCE-ID[;:]/.test(text);
       if (show === "busy") {
         if (!override && isFreeOrCancelled(text)) {

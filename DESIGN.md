@@ -66,7 +66,10 @@ Self-hosted in `web/static/fonts/` (OFL, licenses next to the files), Latin subs
 
 **Landing.** Bar (`fluxkit / ubercal` left; how it works, Sign in, and the theme switch last, at the far right; on a phone the bar is one row and Sign in leaves it, since the hero has its own) → hero (left: `$ ubercal`, the wordmark, “Every calendar. One link.” with a yellow marker under “One link.”, the lede, Sign in with Google, the read-only line; right: the merge, three calendar cards running down black conduits into a yellow junction and out to the share-link card with its countdown) → three readout blocks (yellow `sync · min 05`, pink `calendars 25`, green `trackers 00`) → `01 how it works` (three cards with a colored top band) → `02 what it keeps` (rows with a colored tag each) → footer.
 
-**App.** Bar (crumb, theme switch, the person's picture and email, sign out) → readout strip (blue next-read countdown, pink calendars, green share links) → two columns above 960px, one below: **calendars in** and **share links**, as in the content spec in README.
+**App.** Bar (crumb, the person's picture and email, sign out, theme switch last) → readout strip (blue next-read countdown, pink calendars, green share links) → three pill tabs (`01 accounts` yellow, `02 calendar` pink, `03 share` green; the selected one is filled with `--ink`; on a phone they share one row without numbers), each in the URL hash:
+- **accounts**: the calendars list beside the ways to add one (Google, a link), one column below 960px;
+- **calendar**: toolbar (previous, today, next, the range title; week/month/agenda as a segmented switch with the selected one yellow; a "see as" select: everything, or as a share link), then the view. Week: a 24-hour grid scrolled to 07:30, events as outlined blocks in their calendar's color (busy ones hatched, free ones faded and dashed, short ones on one line), side by side when they overlap, all-day events above, a red now line. Month: six weeks of cells with up to three chips and "+N more". Agenda: two weeks of days with times. A phone opens on the agenda;
+- **share**: the links as cards, two per row when there is room; each with its three-way switches, its dates (`from`, `until`, with an `always`/`forever` pill when open), its numbers, new address and delete.
 
 ## Motion
 

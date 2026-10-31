@@ -1,7 +1,9 @@
 (() => {
   const PALETTE = ["--cal-1", "--cal-2", "--cal-3", "--cal-4", "--cal-5", "--cal-6"];
   const SHOWS = [["full", "full"], ["busy", "busy"], ["hidden", "off"]];
-  const PAST = [[7, "7 days"], [30, "30 days"], [90, "90 days"], [365, "1 year"], [0, "all of it"]];
+  // A share link's dates are local days in the page; the server keeps instants (until is the start of the day after).
+  const localDay = (iso) => { if (!iso) return ""; const day = new Date(iso); return `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, "0")}-${String(day.getDate()).padStart(2, "0")}`; };
+  const dayInstant = (value, after = 0) => { const [y, m, d] = value.split("-").map(Number); return new Date(y, m - 1, d + after).toISOString(); };
   const $ = (selector) => document.querySelector(selector);
   let state = null;
   const openPickers = new Set();
@@ -266,8 +268,14 @@
       });
       const remove = el("button", { class: "btn small quiet danger", type: "button" }, el("span", { text: "delete" }));
       twoStep(remove, "delete", "click again to delete", async () => setState(await call("DELETE", `/feeds/${feed.id}`)));
-      const past = el("select", { class: "select", "aria-label": "How far back" }, PAST.map(([days, text]) => el("option", { value: String(days), selected: feed.pastDays === days, text: `back ${text}` })));
-      past.addEventListener("change", () => patchFeed(feed, { pastDays: Number(past.value) }));
+      const fromInput = el("input", { class: "select date", type: "date", value: localDay(feed.from), "aria-label": `${feed.name} shows events from` });
+      const untilInput = el("input", { class: "select date", type: "date", value: feed.until ? localDay(new Date(new Date(feed.until).getTime() - 1)) : "", "aria-label": `${feed.name} shows events until` });
+      const saveWindow = () => patchFeed(feed, { from: fromInput.value ? dayInstant(fromInput.value) : null, until: untilInput.value ? dayInstant(untilInput.value, 1) : null });
+      fromInput.addEventListener("change", saveWindow);
+      untilInput.addEventListener("change", saveWindow);
+      const dates = el("div", { class: "window" },
+        el("label", {}, el("span", { text: "from" }), fromInput, feed.from ? null : el("em", { text: "always" })),
+        el("label", {}, el("span", { text: "until" }), untilInput, feed.until ? null : el("em", { text: "forever" })));
       const rows = state.sources.map((source, index) => {
         const current = feed.calendars[source.id] || feed.others;
         return el("div", { class: "show-row" },
@@ -286,7 +294,8 @@
             el("span", { text: "calendars you add later" }),
             showSwitch(feed.others, "var(--ink-2)", (show) => patchFeed(feed, { others: show }), `How ${feed.name} shows calendars added later`))),
         feed.error ? el("p", { class: "link-error", text: feed.error }) : null,
-        el("div", { class: "link-foot" }, el("span", { class: "link-meta" }, meta), el("div", { class: "row" }, past, rotate, remove)));
+        dates,
+        el("div", { class: "link-foot" }, el("span", { class: "link-meta" }, meta), el("div", { class: "row" }, rotate, remove)));
     }));
   }
 
@@ -566,7 +575,7 @@
   $("[data-new-link]").addEventListener("click", async () => {
     const calendars = Object.fromEntries(state.sources.map((source) => [source.id, "busy"]));
     try {
-      setState(await call("POST", "/feeds", { name: `Share link ${state.feeds.length + 1}`, calendars, others: "busy" }));
+      setState(await call("POST", "/feeds", { name: `Share link ${state.feeds.length + 1}`, calendars, others: "busy", from: dayInstant(localDay(new Date().toISOString())), until: null }));
       toast("New link: every calendar starts as busy time. Switch any of them to full or off.", "good");
     } catch (error) { toast(error.message, "bad"); }
   });

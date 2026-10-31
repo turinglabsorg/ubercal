@@ -11,6 +11,7 @@ import { occurrences } from "./agenda.js";
 import { buildFeed, REFRESH_MINUTES, renderFeed, SHOWS } from "./feeds.js";
 import { CALENDAR_SCOPES, GoogleError, SIGN_IN_SCOPES } from "./google.js";
 import { normalizeUrl } from "./net.js";
+import { feedWindow } from "./window.js";
 import { open, seal, signJson, token, verifyJson } from "./secrets.js";
 import { accessToken, freshenFeed, rebuildFeeds, syncSource } from "./sync.js";
 
@@ -19,7 +20,6 @@ const SESSION = "fluxkit_session";
 const OAUTH = "ubercal_oauth";
 const SESSION_DAYS = 30;
 export const LIMITS = { sources: 25, feeds: 10 };
-const PAST_DAYS = [0, 7, 30, 90, 365];
 const MIME = {
   ".html": "text/html; charset=utf-8", ".css": "text/css; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".svg": "image/svg+xml",
   ".png": "image/png", ".ico": "image/x-icon", ".woff2": "font/woff2", ".json": "application/json", ".txt": "text/plain; charset=utf-8", ".webmanifest": "application/manifest+json",
@@ -132,7 +132,8 @@ export function createServer(context, config) {
   function feedView(feed) {
     const url = `${publicUrl}/feed/${feed.token}.ics`;
     return {
-      id: String(feed._id), name: feed.name, url, webcal: url.replace(/^https?:/, "webcal:"), calendars: feed.calendars || {}, others: feed.others || "full", pastDays: feed.pastDays || 0, count: feed.count || 0, builtAt: feed.builtAt || null, changedAt: feed.changedAt || null, fetchedAt: feed.fetchedAt || null, error: feed.error || "",
+      id: String(feed._id), name: feed.name, url, webcal: url.replace(/^https?:/, "webcal:"), calendars: feed.calendars || {}, others: feed.others || "full",
+      ...(() => { const window = feedWindow(feed, context.now()); return { from: window.from === null ? null : new Date(window.from), until: window.until === null ? null : new Date(window.until) }; })(), count: feed.count || 0, builtAt: feed.builtAt || null, changedAt: feed.changedAt || null, fetchedAt: feed.fetchedAt || null, error: feed.error || "",
     };
   }
 
@@ -170,10 +171,16 @@ export function createServer(context, config) {
       if (!SHOWS.includes(body.others)) throw new HttpError(400, "A calendar is shown in full, as busy time, or not at all.");
       settings.others = body.others;
     }
-    if (body.pastDays !== undefined) {
-      if (!PAST_DAYS.includes(Number(body.pastDays))) throw new HttpError(400, "Choose how far back the feed goes.");
-      settings.pastDays = Number(body.pastDays);
+    // The window: events from `from` until `until`, each an instant or null for no limit.
+    for (const edge of ["from", "until"]) {
+      if (body[edge] === undefined) continue;
+      if (body[edge] === null || body[edge] === "") { settings[edge] = null; continue; }
+      const at = Date.parse(body[edge]);
+      if (!Number.isFinite(at)) throw new HttpError(400, "Choose the dates the link shows.");
+      settings[edge] = new Date(at);
     }
+    const window = feedWindow({ ...current, ...settings }, context.now());
+    if (window.from !== null && window.until !== null && window.until <= window.from) throw new HttpError(400, "The end of the link's dates has to come after the start.");
     if (body.calendars !== undefined) {
       const entries = body.calendars && typeof body.calendars === "object" && !Array.isArray(body.calendars) ? Object.entries(body.calendars) : null;
       if (!entries || entries.length > LIMITS.sources || entries.some(([, show]) => !SHOWS.includes(show))) throw new HttpError(400, "A calendar is shown in full, as busy time, or not at all.");
@@ -188,7 +195,9 @@ export function createServer(context, config) {
   async function createFeed(user, body) {
     if ((await db.feeds.countDocuments({ userId: user._id })) >= LIMITS.feeds) throw new HttpError(400, `You can have ${LIMITS.feeds} feeds.`);
     const now = new Date(context.now());
-    const feed = { userId: user._id, token: token(), name: "My calendars", calendars: {}, others: "full", pastDays: 90, createdAt: now, ...(await feedSettings(user, body)) };
+    // A new link shows what happens from the day it is made onwards, with no end.
+    const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+    const feed = { userId: user._id, token: token(), name: "My calendars", calendars: {}, others: "full", from: today, until: null, createdAt: now, ...(await feedSettings(user, body, { from: today, until: null })) };
     const { insertedId } = await db.feeds.insertOne(feed);
     return buildFeed(db, { ...feed, _id: insertedId }, context.now());
   }
