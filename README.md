@@ -8,7 +8,9 @@ Every calendar, one link. ubercal merges Google calendars and any `.ics` / `webc
 
 A share link also has its own dates: by default it shows what happens from the day it is made, with no end, and any start and end can be chosen, in the past or the future. A series is cut to those dates (it starts again at its first occurrence inside and ends with the link), so a calendar app never shows what the link leaves out.
 
-The app has three tabs: **accounts** (the Google accounts and links merged), **calendar** (the merged calendar by week, month or agenda, or as any share link shows it) and **share** (the links).
+**Booking pages** work like Calendly: the owner chooses the durations (15 minutes to 2 hours), the weekly hours (several ranges a day), the time zone, the notice, how far ahead people may book and the gap between meetings. The page offers the times that are free in the whole merged calendar (free events aside), in the guest's own time zone; a booking is checked again, held, and written into a Google calendar the owner owns, and Google sends the guest the invitation, with a Meet link if the owner wants one. Writing needs one more Google permission, `calendar.events.owned`, asked only when the owner turns bookings on.
+
+The app has four tabs: **accounts** (the Google accounts and links merged), **calendar** (the merged calendar by week, month or agenda, or as any share link shows it), **share** (the links) and **book** (the booking pages and what is coming up).
 
 ubercal reads every calendar again every five minutes (Google through its sync tokens, links through their ETags) and keeps each share link built and cached. When a calendar app asks for a link whose calendars were read over a minute ago, they are read again first, for at most a few seconds; past that the app gets the copy ready.
 
