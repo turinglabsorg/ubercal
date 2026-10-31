@@ -182,6 +182,7 @@ describe("Google calendars", () => {
     const { response, authorize } = await connectCalendars(running, google, cookie, ADA);
     assert.equal(authorize.searchParams.get("access_type"), "offline");
     assert.match(authorize.searchParams.get("scope"), /calendar\.readonly/);
+    assert.equal(authorize.searchParams.get("include_granted_scopes"), null);
     assert.match(response.headers.get("location"), /^\/app\?connected=/);
     const me = (await api(running, cookie, "GET", "/me")).data;
     return { google, running, cookie, connection: me.connections[0], feed: me.feeds[0] };

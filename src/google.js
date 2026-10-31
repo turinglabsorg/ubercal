@@ -51,7 +51,9 @@ export class Google {
     const url = new URL(this.authUrl);
     const params = {
       client_id: this.clientId, redirect_uri: redirectUri, response_type: "code", scope: scopes.join(" "), state,
-      code_challenge: pkceChallenge(verifier), code_challenge_method: "S256", include_granted_scopes: "true",
+      // No include_granted_scopes: the project's other clients (milo) hold Gmail grants, and Google would fold them
+      // into ubercal's tokens, and refuse the request outright for scopes an unverified app may no longer grant.
+      code_challenge: pkceChallenge(verifier), code_challenge_method: "S256",
     };
     if (offline) Object.assign(params, { access_type: "offline", prompt: "consent" });
     else if (selectAccount) params.prompt = "select_account";
