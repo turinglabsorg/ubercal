@@ -11,6 +11,7 @@ import { occurrences } from "./agenda.js";
 import { AHEAD, BUFFERS, busyBetween, cleanHours, DEFAULT_HOURS, DURATIONS, freeSlots, notifyBooking, NOTICE, slugProblem } from "./booking.js";
 import { buildFeed, REFRESH_MINUTES, renderFeed, SHOWS } from "./feeds.js";
 import { CALENDAR_SCOPES, canWrite, GoogleError, SIGN_IN_SCOPES, WRITE_SCOPE } from "./google.js";
+import { LANGUAGES } from "./mail.js";
 import { isZone } from "./tz.js";
 import { normalizeUrl } from "./net.js";
 import { feedWindow } from "./window.js";
@@ -155,7 +156,7 @@ export function createServer(context, config) {
       db.leases.findOne({ _id: "sync" }),
       db.pages.find({ userId: user._id }).sort({ createdAt: 1 }).toArray(),
     ]);
-    const upcoming = await db.appointments.find({ userId: user._id, status: "confirmed", end: { $gt: new Date(context.now()) } }).sort({ start: 1 }).limit(50).toArray();
+    const upcoming = await db.appointments.find({ userId: user._id, status: { $in: ["confirmed", "declined"] }, end: { $gt: new Date(context.now()) } }).sort({ start: 1 }).limit(50).toArray();
     const last = lease?.finishedAt || null;
     return {
       user: { email: user.email, name: user.name || "", picture: user.picture || "" },
@@ -205,7 +206,7 @@ export function createServer(context, config) {
       target: page.target ? { connectionId: String(page.target.connectionId), calendarId: page.target.calendarId } : null,
       ready: Boolean(connection && canWrite(connection.scope) && connection.status !== "revoked"),
       upcoming: upcoming.filter((entry) => String(entry.pageId) === String(page._id)).slice(0, 10)
-        .map((entry) => ({ start: entry.start, end: entry.end, name: entry.name, email: entry.email })),
+        .map((entry) => ({ start: entry.start, end: entry.end, name: entry.name, email: entry.email, answer: entry.status === "declined" ? "declined" : entry.guestStatus || "needsAction" })),
     };
   }
 
@@ -533,6 +534,7 @@ export function createServer(context, config) {
       const email = String(body.email || "").trim().toLowerCase();
       const notes = String(body.notes || "").trim().slice(0, 2000);
       const guestZone = isZone(body.timeZone) ? body.timeZone : "";
+      const language = LANGUAGES.includes(body.language) ? body.language : "en";
       if (!page.durations.includes(duration) || !Number.isFinite(start)) throw new HttpError(400, "Choose a time from the list.");
       if (!name) throw new HttpError(400, "Write your name.");
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email) || email.length > 200) throw new HttpError(400, "Write an email address that works: the invitation goes there.");
@@ -546,7 +548,8 @@ export function createServer(context, config) {
         if (!free.includes(start)) throw new HttpError(409, "Someone took this time a moment ago: choose another.");
         const end = start + duration * 60000;
         const now = new Date(context.now());
-        const { insertedId } = await db.appointments.insertOne({ userId: page.userId, pageId: page._id, start: new Date(start), end: new Date(end), name, email, notes, guestZone, status: "pending", createdAt: now });
+        const { insertedId } = await db.appointments.insertOne({ userId: page.userId, pageId: page._id, start: new Date(start), end: new Date(end), name, email, notes, guestZone, language,
+          connectionId: connection._id, calendarId: page.target.calendarId, guestStatus: "needsAction", status: "pending", createdAt: now });
         let event;
         try {
           const owner = await db.users.findOne({ _id: page.userId });

@@ -89,12 +89,18 @@ export async function fakeGoogle() {
     const sub = grant?.sub;
     if (!sub) return json(res, 401, { error: { message: "Invalid Credentials", errors: [{ reason: "authError" }] } });
     if (url.pathname === "/calendar/v3/users/me/calendarList") return json(res, 200, { items: state.calendars[sub] || [] });
+    const one = /^\/calendar\/v3\/calendars\/([^/]+)\/events\/([^/]+)$/.exec(url.pathname);
+    if (one && req.method === "GET") {
+      const found = state.inserted.find((entry) => entry.id === decodeURIComponent(one[2]));
+      if (!found || found.deleted) return json(res, 404, { error: { message: "Not Found", errors: [{ reason: "notFound" }] } });
+      return json(res, 200, { id: found.id, status: "confirmed", ...found.event });
+    }
     const match = /^\/calendar\/v3\/calendars\/([^/]+)\/events$/.exec(url.pathname);
     if (match && req.method === "POST") {
       if (!/calendar\.events/.test(grant.scope)) return json(res, 403, { error: { message: "Request had insufficient authentication scopes.", errors: [{ reason: "insufficientPermissions" }] } });
       const event = JSON.parse(await body(req));
       const id = `booked${state.inserted.length + 1}`;
-      state.inserted.push({ calendarId: decodeURIComponent(match[1]), query: Object.fromEntries(url.searchParams), event });
+      state.inserted.push({ id, calendarId: decodeURIComponent(match[1]), query: Object.fromEntries(url.searchParams), event });
       return json(res, 200, { id, htmlLink: `https://calendar.google.com/event?eid=${id}`, ...(event.conferenceData ? { hangoutLink: "https://meet.google.com/abc-defg-hij" } : {}) });
     }
     if (match) {

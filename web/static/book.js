@@ -4,6 +4,40 @@
   const root = document.querySelector("[data-book]");
   const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
   const view = { info: null, duration: 0, month: null, slots: new Map(), day: "", start: "", loading: false, done: null };
+
+  // The page speaks the guest's language: Italian, English, Spanish or French, switched by the flags.
+  const WORDS = {
+    en: { opening: "Opening the calendar…", none: "No booking page here", looking: "Looking for free times…", empty: "No free times this month. Try the next one.", name: "your name", email: "your email (the invitation goes here)", notes: "anything to share before the meeting (optional)", book: "book it", booking: "booking…", booked: "booked", sent: (email) => `The invitation is on its way to ${email}.`, accept: "One more step: open the Google Calendar invitation and answer “Yes”, so the meeting is confirmed in your calendar too.", meet: "Google Meet link", meetFact: "Google Meet link in the invitation", zone: (zone) => `Times in your time zone: ${zone}`, closed: "This booking page is not taking bookings yet.", previous: "Previous month", next: "Next month", footer: ["Booking with ", ", an open-source ", " tool"], taken: /took this time/ },
+    it: { opening: "Apro il calendario…", none: "Nessuna pagina di prenotazione qui", looking: "Cerco gli orari liberi…", empty: "Nessun orario libero questo mese. Prova il prossimo.", name: "il tuo nome", email: "la tua email (l'invito arriva qui)", notes: "qualcosa da dire prima dell'incontro (facoltativo)", book: "prenota", booking: "prenoto…", booked: "prenotato", sent: (email) => `L'invito sta arrivando a ${email}.`, accept: "Un ultimo passo: apri l'invito di Google Calendar e rispondi “Sì”, così l'incontro è confermato anche nel tuo calendario.", meet: "Link di Google Meet", meetFact: "Link di Google Meet nell'invito", zone: (zone) => `Orari nel tuo fuso: ${zone}`, closed: "Questa pagina non accetta ancora prenotazioni.", previous: "Mese precedente", next: "Mese successivo", footer: ["Prenotazione con ", ", uno strumento open source di ", ""], taken: /took this time/ },
+    es: { opening: "Abriendo el calendario…", none: "No hay ninguna página de reservas aquí", looking: "Buscando horas libres…", empty: "No hay horas libres este mes. Prueba el siguiente.", name: "tu nombre", email: "tu correo (la invitación llega aquí)", notes: "algo que contar antes de la reunión (opcional)", book: "reservar", booking: "reservando…", booked: "reservado", sent: (email) => `La invitación está de camino a ${email}.`, accept: "Un último paso: abre la invitación de Google Calendar y responde “Sí”, para que la reunión quede confirmada también en tu calendario.", meet: "Enlace de Google Meet", meetFact: "Enlace de Google Meet en la invitación", zone: (zone) => `Horas en tu zona horaria: ${zone}`, closed: "Esta página todavía no acepta reservas.", previous: "Mes anterior", next: "Mes siguiente", footer: ["Reserva con ", ", una herramienta de código abierto de ", ""], taken: /took this time/ },
+    fr: { opening: "Ouverture de l'agenda…", none: "Aucune page de réservation ici", looking: "Recherche des créneaux libres…", empty: "Aucun créneau libre ce mois-ci. Essayez le suivant.", name: "votre nom", email: "votre e-mail (l'invitation arrive ici)", notes: "quelque chose à dire avant le rendez-vous (facultatif)", book: "réserver", booking: "réservation…", booked: "réservé", sent: (email) => `L'invitation est en route vers ${email}.`, accept: "Dernière étape : ouvrez l'invitation Google Agenda et répondez « Oui », pour que le rendez-vous soit confirmé dans votre agenda aussi.", meet: "Lien Google Meet", meetFact: "Lien Google Meet dans l'invitation", zone: (zone) => `Horaires dans votre fuseau : ${zone}`, closed: "Cette page n'accepte pas encore de réservations.", previous: "Mois précédent", next: "Mois suivant", footer: ["Réservation avec ", ", un outil open source de ", ""], taken: /took this time/ },
+  };
+  const LOCALES = { en: "en-GB", it: "it-IT", es: "es-ES", fr: "fr-FR" };
+  let language = (() => {
+    try { const saved = localStorage.getItem("ubercal.lang"); if (WORDS[saved]) return saved; } catch {}
+    for (const preferred of navigator.languages || [navigator.language || "en"]) { const short = String(preferred).slice(0, 2).toLowerCase(); if (WORDS[short]) return short; }
+    return "en";
+  })();
+  const words = () => WORDS[language];
+  const locale = () => LOCALES[language];
+
+  function showLanguage() {
+    document.documentElement.lang = language;
+    for (const button of document.querySelectorAll("[data-lang]")) button.setAttribute("aria-pressed", String(button.dataset.lang === language));
+    const footer = document.querySelector("[data-footer]");
+    if (footer) {
+      const [before, middle, after] = words().footer;
+      footer.replaceChildren(before, el("a", { href: "/", text: "ubercal" }), middle, el("a", { href: "https://fluxkit.dev", text: "fluxkit" }), after);
+    }
+  }
+  for (const button of document.querySelectorAll("[data-lang]")) {
+    button.addEventListener("click", () => {
+      language = button.dataset.lang;
+      try { localStorage.setItem("ubercal.lang", language); } catch {}
+      showLanguage();
+      render();
+    });
+  }
   let toastTimer = null;
 
   function el(tag, props = {}, ...children) {
@@ -43,7 +77,8 @@
 
   const dayKey = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
   const length = (minutes) => minutes < 60 ? `${minutes} min` : minutes % 60 ? `${Math.floor(minutes / 60)} h ${minutes % 60}` : `${minutes / 60} h`;
-  const timeText = (iso) => new Date(iso).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+  const timeText = (iso) => new Date(iso).toLocaleTimeString(locale(), { hour: "2-digit", minute: "2-digit" });
+  const dayText = (date, options) => new Date(date).toLocaleDateString(locale(), options);
 
   async function loadMonth() {
     const first = new Date(view.month.getFullYear(), view.month.getMonth(), 1);
@@ -80,14 +115,14 @@
     const start = new Date(first);
     start.setDate(1 - ((first.getDay() + 6) % 7));
     const today = dayKey(new Date());
-    const names = Array.from({ length: 7 }, (_, index) => new Date(2026, 10, 2 + index).toLocaleDateString(undefined, { weekday: "narrow" }));
+    const names = Array.from({ length: 7 }, (_, index) => dayText(new Date(2026, 10, 2 + index), { weekday: "narrow" }));
     const thisMonth = new Date().getFullYear() === view.month.getFullYear() && new Date().getMonth() === view.month.getMonth();
     const limit = new Date(Date.now() + (view.info.daysAhead || 30) * 86400000);
     return el("div", { class: "picker-month" },
       el("div", { class: "picker-head" },
-        el("button", { class: "icon-btn", type: "button", "aria-label": "Previous month", disabled: thisMonth, onclick: () => { view.month = new Date(view.month.getFullYear(), view.month.getMonth() - 1, 1); loadMonth(); } }, icon("left")),
-        el("h2", { text: view.month.toLocaleDateString(undefined, { month: "long", year: "numeric" }) }),
-        el("button", { class: "icon-btn", type: "button", "aria-label": "Next month", disabled: new Date(view.month.getFullYear(), view.month.getMonth() + 1, 1) > limit, onclick: () => { view.month = new Date(view.month.getFullYear(), view.month.getMonth() + 1, 1); loadMonth(); } }, icon("right"))),
+        el("button", { class: "icon-btn", type: "button", "aria-label": words().previous, disabled: thisMonth, onclick: () => { view.month = new Date(view.month.getFullYear(), view.month.getMonth() - 1, 1); loadMonth(); } }, icon("left")),
+        el("h2", { text: dayText(view.month, { month: "long", year: "numeric" }) }),
+        el("button", { class: "icon-btn", type: "button", "aria-label": words().next, disabled: new Date(view.month.getFullYear(), view.month.getMonth() + 1, 1) > limit, onclick: () => { view.month = new Date(view.month.getFullYear(), view.month.getMonth() + 1, 1); loadMonth(); } }, icon("right"))),
       el("div", { class: "picker-grid" },
         names.map((name) => el("span", { class: "picker-name", text: name })),
         Array.from({ length: 42 }, (_, index) => {
@@ -97,18 +132,18 @@
           const open = view.slots.has(key) && day.getMonth() === view.month.getMonth();
           return el("button", {
             type: "button", class: `picker-day${open ? " open" : ""}${key === view.day ? " chosen" : ""}${key === today ? " today" : ""}${day.getMonth() === view.month.getMonth() ? "" : " other"}`,
-            disabled: !open, "aria-pressed": String(key === view.day), "aria-label": day.toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" }),
+            disabled: !open, "aria-pressed": String(key === view.day), "aria-label": dayText(day, { weekday: "long", day: "numeric", month: "long" }),
             onclick: () => { view.day = key; view.start = ""; render(); },
           }, String(day.getDate()));
         })));
   }
 
   function times() {
-    if (view.loading) return el("p", { class: "empty", text: "Looking for free times…" });
-    if (!view.day) return el("p", { class: "empty", text: "No free times this month. Try the next one." });
+    if (view.loading) return el("p", { class: "empty", text: words().looking });
+    if (!view.day) return el("p", { class: "empty", text: words().empty });
     const date = new Date(`${view.day}T12:00:00`);
     return el("div", { class: "picker-times" },
-      el("h3", { text: date.toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" }) }),
+      el("h3", { text: dayText(date, { weekday: "long", day: "numeric", month: "long" }) }),
       el("div", { class: "time-list" }, (view.slots.get(view.day) || []).map((at) => el("button", {
         type: "button", class: `time-slot${at === view.start ? " chosen" : ""}`, "aria-pressed": String(at === view.start), text: timeText(at),
         onclick: () => { view.start = at; render(); document.querySelector("[data-form] input")?.focus(); },
@@ -119,27 +154,27 @@
     if (!view.start) return null;
     const end = new Date(new Date(view.start).getTime() + view.duration * 60000).toISOString();
     const node = el("form", { class: "book-form", "data-form": true },
-      el("p", { class: "book-when" }, el("b", { text: new Date(view.start).toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" }) }), ` · ${timeText(view.start)}–${timeText(end)}`),
+      el("p", { class: "book-when" }, el("b", { text: dayText(view.start, { weekday: "long", day: "numeric", month: "long" }) }), ` · ${timeText(view.start)}–${timeText(end)}`),
       el("label", { class: "sr", for: "book-name", text: "Your name" }),
-      el("input", { class: "input", id: "book-name", name: "name", autocomplete: "name", placeholder: "your name", required: true, maxlength: "100" }),
+      el("input", { class: "input", id: "book-name", name: "name", autocomplete: "name", placeholder: words().name, required: true, maxlength: "100" }),
       el("label", { class: "sr", for: "book-email", text: "Your email" }),
-      el("input", { class: "input", id: "book-email", name: "email", type: "email", autocomplete: "email", placeholder: "your email (the invitation goes here)", required: true, maxlength: "200" }),
+      el("input", { class: "input", id: "book-email", name: "email", type: "email", autocomplete: "email", placeholder: words().email, required: true, maxlength: "200" }),
       el("label", { class: "sr", for: "book-notes", text: "Notes" }),
-      el("textarea", { class: "input notes", id: "book-notes", name: "notes", placeholder: "anything to share before the meeting (optional)", maxlength: "2000", rows: "3" }),
-      el("button", { class: "btn primary", type: "submit" }, el("span", { text: "book it" })));
+      el("textarea", { class: "input notes", id: "book-notes", name: "notes", placeholder: words().notes, maxlength: "2000", rows: "3" }),
+      el("button", { class: "btn primary", type: "submit" }, el("span", { text: words().book })));
     node.addEventListener("submit", async (event) => {
       event.preventDefault();
       const button = node.querySelector("button[type=submit]");
       button.disabled = true;
-      button.lastChild.textContent = "booking…";
+      button.lastChild.textContent = words().booking;
       try {
-        view.done = await call("reserve", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ duration: view.duration, start: view.start, name: node.name.value, email: node.email.value, notes: node.notes.value, timeZone: zone }) });
+        view.done = await call("reserve", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ duration: view.duration, start: view.start, name: node.name.value, email: node.email.value, notes: node.notes.value, timeZone: zone, language }) });
         view.done.email = node.email.value;
         render();
       } catch (error) {
         toast(error.message, "bad");
         button.disabled = false;
-        button.lastChild.textContent = "book it";
+        button.lastChild.textContent = words().book;
         if (/took this time/.test(error.message)) { view.start = ""; loadMonth(); }
       }
     });
@@ -160,28 +195,31 @@
         onclick: () => { if (view.duration !== minutes) { view.duration = minutes; view.start = ""; loadMonth(); } },
       }))),
       el("ul", { class: "book-facts" },
-        info.meet ? el("li", { text: "Google Meet link in the invitation" }) : null,
-        el("li", { text: `Times in your time zone: ${zone.replace(/_/g, " ")}` })));
+        info.meet ? el("li", { text: words().meetFact }) : null,
+        el("li", { text: words().zone(zone.replace(/_/g, " ")) })));
     if (view.done) {
       root.replaceChildren(about, el("section", { class: "book-done" },
-        el("span", { class: "done-badge", text: "booked" }),
-        el("h2", { text: `${new Date(view.done.start).toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" })}, ${timeText(view.done.start)}–${timeText(view.done.end)}` }),
-        el("p", { text: `The invitation is on its way to ${view.done.email}. Accept it to put the meeting in your calendar.` }),
-        view.done.meet ? el("a", { class: "btn", href: view.done.meet, target: "_blank", rel: "noopener", text: "Google Meet link" }) : null));
+        el("span", { class: "done-badge", text: words().booked }),
+        el("h2", { text: `${dayText(view.done.start, { weekday: "long", day: "numeric", month: "long" })}, ${timeText(view.done.start)}–${timeText(view.done.end)}` }),
+        el("p", { text: words().sent(view.done.email) }),
+        el("p", { class: "accept-note", text: words().accept }),
+        view.done.meet ? el("a", { class: "btn", href: view.done.meet, target: "_blank", rel: "noopener", text: words().meet }) : null));
       return;
     }
     if (!info.ready) {
-      root.replaceChildren(about, el("section", { class: "book-pick" }, el("p", { class: "empty", text: "This booking page is not taking bookings yet." })));
+      root.replaceChildren(about, el("section", { class: "book-pick" }, el("p", { class: "empty", text: words().closed })));
       return;
     }
     root.replaceChildren(about, el("section", { class: "book-pick" }, el("div", { class: "pick-grid" }, month(), times()), form()));
   }
 
   (async () => {
+    showLanguage();
+    root.replaceChildren(el("p", { class: "empty", text: words().opening }));
     try {
       view.info = await call("info");
     } catch (error) {
-      root.replaceChildren(el("section", { class: "book-pick" }, el("h1", { text: "No booking page here" }), el("p", { class: "empty", text: error.message })));
+      root.replaceChildren(el("section", { class: "book-pick" }, el("h1", { text: words().none }), el("p", { class: "empty", text: error.message })));
       return;
     }
     document.title = `${view.info.name} · ubercal`;

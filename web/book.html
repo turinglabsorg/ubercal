@@ -18,6 +18,10 @@
     <symbol id="i-mark" viewBox="0 0 30 34"><g fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><line x1="15" y1="2" x2="15" y2="16"/><line x1="15" y1="16" x2="3" y2="31"/><line x1="15" y1="16" x2="27" y2="31"/></g></symbol>
     <symbol id="i-left" viewBox="0 0 16 16"><path d="M10 3 5 8l5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
     <symbol id="i-right" viewBox="0 0 16 16"><path d="m6 3 5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="f-it" viewBox="0 0 3 2"><rect width="1" height="2" fill="#009246"/><rect x="1" width="1" height="2" fill="#fff"/><rect x="2" width="1" height="2" fill="#ce2b37"/></symbol>
+    <symbol id="f-fr" viewBox="0 0 3 2"><rect width="1" height="2" fill="#0055a4"/><rect x="1" width="1" height="2" fill="#fff"/><rect x="2" width="1" height="2" fill="#ef4135"/></symbol>
+    <symbol id="f-es" viewBox="0 0 3 2"><rect width="3" height="2" fill="#aa151b"/><rect y=".5" width="3" height="1" fill="#f1bf00"/></symbol>
+    <symbol id="f-en" viewBox="0 0 60 30"><clipPath id="f-en-a"><path d="M30 15h30v15zv15H0zH0V0zV0h30z"/></clipPath><path d="M0 0v30h60V0z" fill="#012169"/><path d="M0 0l60 30m0-30L0 30" stroke="#fff" stroke-width="6"/><path d="M0 0l60 30m0-30L0 30" clip-path="url(#f-en-a)" stroke="#c8102e" stroke-width="4"/><path d="M30 0v30M0 15h60" stroke="#fff" stroke-width="10"/><path d="M30 0v30M0 15h60" stroke="#c8102e" stroke-width="6"/></symbol>
     <symbol id="i-sun" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M5.3 18.7l1.6-1.6M17.1 6.9l1.6-1.6"/></g></symbol>
     <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/></symbol>
   </svg>
@@ -27,7 +31,13 @@
         <svg aria-hidden="true"><use href="#i-mark"/></svg>
         fluxkit <span>/</span> <strong>ubercal</strong>
       </a>
-      <nav aria-label="Theme">
+      <nav aria-label="Language and theme">
+        <div class="flags" role="group" aria-label="Language" data-flags>
+          <button type="button" data-lang="it" aria-label="Italiano"><svg aria-hidden="true"><use href="#f-it"/></svg></button>
+          <button type="button" data-lang="en" aria-label="English"><svg aria-hidden="true"><use href="#f-en"/></svg></button>
+          <button type="button" data-lang="es" aria-label="Español"><svg aria-hidden="true"><use href="#f-es"/></svg></button>
+          <button type="button" data-lang="fr" aria-label="Français"><svg aria-hidden="true"><use href="#f-fr"/></svg></button>
+        </div>
         <button class="theme" type="button" data-theme-toggle aria-label="Switch between light and dark"><svg class="sun" aria-hidden="true"><use href="#i-sun"/></svg><svg class="moon" aria-hidden="true"><use href="#i-moon"/></svg></button>
       </nav>
     </header>
@@ -38,7 +48,7 @@
 
     <footer>
       <div class="foot">
-        <span>Booking with <a href="/">ubercal</a>, an open-source <a href="https://fluxkit.dev">fluxkit</a> tool</span>
+        <span data-footer>Booking with <a href="/">ubercal</a>, an open-source <a href="https://fluxkit.dev">fluxkit</a> tool</span>
         <nav aria-label="Footer">
           <a href="https://fluxkit.dev/privacy/">privacy</a>
           <a href="https://fluxkit.dev/terms/">terms</a>

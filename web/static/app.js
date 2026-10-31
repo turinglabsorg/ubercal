@@ -688,7 +688,8 @@
         el("h3", { class: "page-label", text: "when" }), hoursEditor(page),
         el("div", { class: "page-limits" }, zone, select("noticeMinutes", NOTICE_CHOICES, "Notice"), select("daysAhead", AHEAD_CHOICES.map((days) => [days, `up to ${days} days ahead`]), "How far ahead"), select("bufferMinutes", BUFFER_CHOICES.map((minutes) => [minutes, minutes ? `${minutes} min between meetings` : "no gap between meetings"]), "Gap"), meet),
         el("h3", { class: "page-label", text: "coming up" }),
-        page.upcoming.length ? el("ul", { class: "upcoming" }, page.upcoming.map((entry) => el("li", {}, el("b", { text: when(entry) }), el("span", { text: `${entry.name} · ${entry.email}` })))) : el("p", { class: "empty", text: "No bookings yet." }),
+        page.upcoming.length ? el("ul", { class: "upcoming" }, page.upcoming.map((entry) => el("li", {}, el("b", { text: when(entry) }), el("span", { text: `${entry.name} · ${entry.email}` }),
+          el("em", { class: `answer ${entry.answer}`, text: { accepted: "said yes", needsAction: "waiting for yes", tentative: "maybe", declined: "declined" }[entry.answer] || entry.answer })))) : el("p", { class: "empty", text: "No bookings yet." }),
         el("div", { class: "link-foot" }, el("span", { class: "link-meta", text: page.ready ? "taking bookings" : "not taking bookings yet" }), el("div", { class: "row" }, rotate, remove)));
     }));
   }

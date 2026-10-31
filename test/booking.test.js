@@ -185,4 +185,33 @@ describe("booking pages", () => {
     await running.app.syncer.runOnce();
     assert.equal(resend.sent.length, 2, "only the confirmation and the notice");
   });
+
+  test("ubercal follows the guest's answer: a yes shows, a no frees the time and tells the owner, a deleted event cancels", async (t) => {
+    const resend = await fakeResend();
+    t.after(resend.close);
+    const { google, running, cookie, token } = await owner(t, { resend });
+    for (const [hour, email] of [[10, "yes@example.com"], [11, "no@example.com"], [12, "gone@example.com"], [14, "later@example.com"]]) {
+      assert.equal((await reserve(running, token, { duration: 30, start: rome(2, hour), name: email.split("@")[0], email, language: "it" })).status, 201);
+    }
+    for (let i = 0; i < 40 && resend.sent.length < 8; i++) await new Promise((r) => setTimeout(r, 50));
+    assert.match(resend.sent[0].subject, /^Prenotato: 30 minute meeting con Ada, lunedì 2 novembre/);
+    assert.match(resend.sent[0].html, /accetta l&#39;invito di Google Calendar/);
+    const [yes, no, gone] = google.state.inserted;
+    yes.event.attendees[0].responseStatus = "accepted";
+    no.event.attendees[0].responseStatus = "declined";
+    gone.deleted = true;
+    const before = resend.sent.length;
+    await running.app.syncer.runOnce();
+    const upcoming = (await api(running, cookie, "GET", "/me")).data.pages[0].upcoming;
+    assert.deepEqual(upcoming.map((entry) => [entry.email, entry.answer]), [["yes@example.com", "accepted"], ["no@example.com", "declined"], ["later@example.com", "needsAction"]]);
+    const offered = (await slots(running, token)).slots;
+    assert.ok(offered.includes(rome(2, 11)), "a declined time is free again");
+    assert.ok(offered.includes(rome(2, 12)), "a deleted meeting frees its time");
+    assert.ok(!offered.includes(rome(2, 10)), "an accepted time stays taken");
+    const notices = resend.sent.slice(before);
+    assert.equal(notices.length, 1);
+    assert.match(notices[0].subject, /^Declined: no, Monday 2 November, 11:00–11:30/);
+    await running.app.syncer.runOnce();
+    assert.equal(resend.sent.length, before + 1, "the decline is told once");
+  });
 });

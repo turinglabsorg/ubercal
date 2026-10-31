@@ -4,7 +4,9 @@
  */
 import { occurrences } from "./agenda.js";
 import { renderFeed } from "./feeds.js";
+import { GoogleError } from "./google.js";
 import { bookingEmail } from "./mail.js";
+import { accessToken } from "./sync.js";
 import { isZone, wallClock, zonedToUtc } from "./tz.js";
 
 const DAY = 86400000;
@@ -88,7 +90,7 @@ export async function busyBetween(db, userId, from, to, now = Date.now()) {
     .map((entry) => entry.allDay
       ? [Date.parse(`${entry.start.date}T00:00:00Z`), Date.parse(`${entry.end.date}T00:00:00Z`)]
       : [Date.parse(entry.start.at), Date.parse(entry.end.at)]);
-  const booked = await db.appointments.find({ userId, status: { $ne: "cancelled" }, start: { $lt: new Date(to) }, end: { $gt: new Date(from) } }, { projection: { start: 1, end: 1 } }).toArray();
+  const booked = await db.appointments.find({ userId, status: { $nin: ["cancelled", "declined"] }, start: { $lt: new Date(to) }, end: { $gt: new Date(from) } }, { projection: { start: 1, end: 1 } }).toArray();
   return [...busy, ...booked.map((entry) => [entry.start.getTime(), entry.end.getTime()])];
 }
 
@@ -129,6 +131,39 @@ export async function remind(context) {
       if (!claimed || late || soon) continue;
       const parts = await bookingParts(db, appointment);
       if (parts) await mailer.send(bookingEmail(kind, parts));
+    }
+  }
+}
+
+/**
+ * The guest's answer to Google's invitation, read again from the event on every
+ * pass until the meeting: accepted, tentative, declined or still waiting. A declined
+ * or deleted meeting frees its time; the owner hears about a decline.
+ */
+export async function followGuests(context) {
+  const { db, google, mailer, now, log } = context;
+  const upcoming = await db.appointments.find({ status: "confirmed", end: { $gt: new Date(now()) }, eventId: { $nin: ["", null] } }).limit(500).toArray();
+  for (const appointment of upcoming) {
+    const connection = await db.connections.findOne({ _id: appointment.connectionId });
+    if (!connection || connection.status === "revoked") continue;
+    let event;
+    try {
+      event = await google.api(await accessToken(context, connection), `/calendars/${encodeURIComponent(appointment.calendarId)}/events/${encodeURIComponent(appointment.eventId)}`);
+    } catch (error) {
+      if (error instanceof GoogleError && (error.status === 404 || error.status === 410)) event = { status: "cancelled" };
+      else { log?.("guest answer unread", String(appointment._id), error?.status || error?.message || ""); continue; }
+    }
+    if (event.status === "cancelled") {
+      await db.appointments.updateOne({ _id: appointment._id }, { $set: { status: "cancelled", checkedAt: new Date(now()) } });
+      continue;
+    }
+    const guest = (event.attendees || []).find((attendee) => String(attendee.email || "").toLowerCase() === appointment.email);
+    const answer = guest?.responseStatus || "needsAction";
+    const declined = answer === "declined";
+    await db.appointments.updateOne({ _id: appointment._id }, { $set: { guestStatus: answer, checkedAt: new Date(now()), ...(declined ? { status: "declined" } : {}) } });
+    if (declined && mailer?.enabled) {
+      const parts = await bookingParts(db, { ...appointment, guestStatus: answer });
+      if (parts) await mailer.send(bookingEmail("declined", parts));
     }
   }
 }
