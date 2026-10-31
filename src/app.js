@@ -3,6 +3,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { connect } from "./db.js";
 import { Google } from "./google.js";
+import { Mailer } from "./mail.js";
 import { keyFrom } from "./secrets.js";
 import { createServer } from "./server.js";
 import { Syncer } from "./sync.js";
@@ -27,6 +28,9 @@ export function settingsFromEnv(env = process.env) {
     googleApiBase: env.UBERCAL_GOOGLE_API_BASE || "",
     googleRevokeUrl: env.UBERCAL_GOOGLE_REVOKE_URL || "",
     syncMinutes: Number(env.UBERCAL_SYNC_MINUTES) || 5,
+    resendKey: env.FLUXKIT_RESEND_API_KEY || "",
+    resendApi: env.UBERCAL_RESEND_API || "",
+    mailFrom: env.UBERCAL_MAIL_FROM || "",
     allowPrivate: env.UBERCAL_ALLOW_PRIVATE_LINKS === "1",
     webDir: env.UBERCAL_WEB_DIR || join(ROOT, "web"),
   };
@@ -40,7 +44,8 @@ export async function createApp(settings, { now = () => Date.now(), log = (...pa
     clientId: settings.googleClientId, clientSecret: settings.googleClientSecret,
     authUrl: settings.googleAuthUrl, tokenUrl: settings.googleTokenUrl, apiBase: settings.googleApiBase, revokeUrl: settings.googleRevokeUrl,
   });
-  const context = { db, google, dataKey: keyFrom(settings.dataKey), allowPrivate: settings.allowPrivate, now, log };
+  const mailer = new Mailer({ apiKey: settings.resendKey, log, ...(settings.mailFrom ? { from: settings.mailFrom } : {}), ...(settings.resendApi ? { apiBase: settings.resendApi } : {}) });
+  const context = { db, google, mailer, dataKey: keyFrom(settings.dataKey), allowPrivate: settings.allowPrivate, now, log };
   const server = createServer(context, { ...settings, sessionKey: keyFrom(settings.sessionKey) });
   const syncer = new Syncer(context, { intervalMs: settings.syncMinutes * 60000 });
   return {

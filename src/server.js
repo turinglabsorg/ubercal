@@ -8,7 +8,7 @@ import http from "node:http";
 import { extname, join, normalize, sep } from "node:path";
 import { ObjectId } from "mongodb";
 import { occurrences } from "./agenda.js";
-import { AHEAD, BUFFERS, busyBetween, cleanHours, DEFAULT_HOURS, DURATIONS, freeSlots, NOTICE, slugProblem } from "./booking.js";
+import { AHEAD, BUFFERS, busyBetween, cleanHours, DEFAULT_HOURS, DURATIONS, freeSlots, notifyBooking, NOTICE, slugProblem } from "./booking.js";
 import { buildFeed, REFRESH_MINUTES, renderFeed, SHOWS } from "./feeds.js";
 import { CALENDAR_SCOPES, canWrite, GoogleError, SIGN_IN_SCOPES, WRITE_SCOPE } from "./google.js";
 import { isZone } from "./tz.js";
@@ -532,6 +532,7 @@ export function createServer(context, config) {
       const name = String(body.name || "").replace(/\s+/g, " ").trim().slice(0, 100);
       const email = String(body.email || "").trim().toLowerCase();
       const notes = String(body.notes || "").trim().slice(0, 2000);
+      const guestZone = isZone(body.timeZone) ? body.timeZone : "";
       if (!page.durations.includes(duration) || !Number.isFinite(start)) throw new HttpError(400, "Choose a time from the list.");
       if (!name) throw new HttpError(400, "Write your name.");
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email) || email.length > 200) throw new HttpError(400, "Write an email address that works: the invitation goes there.");
@@ -545,7 +546,7 @@ export function createServer(context, config) {
         if (!free.includes(start)) throw new HttpError(409, "Someone took this time a moment ago: choose another.");
         const end = start + duration * 60000;
         const now = new Date(context.now());
-        const { insertedId } = await db.appointments.insertOne({ userId: page.userId, pageId: page._id, start: new Date(start), end: new Date(end), name, email, notes, status: "pending", createdAt: now });
+        const { insertedId } = await db.appointments.insertOne({ userId: page.userId, pageId: page._id, start: new Date(start), end: new Date(end), name, email, notes, guestZone, status: "pending", createdAt: now });
         let event;
         try {
           const owner = await db.users.findOne({ _id: page.userId });
@@ -565,6 +566,7 @@ export function createServer(context, config) {
         }
         const meet = event.hangoutLink || event.conferenceData?.entryPoints?.find((entry) => entry.entryPointType === "video")?.uri || "";
         await db.appointments.updateOne({ _id: insertedId }, { $set: { status: "confirmed", eventId: String(event.id || ""), meet } });
+        notifyBooking(context, insertedId).catch((error) => context.log?.("booking mail failed", error?.message || error));
         context.busyCache?.delete(String(page.userId));
         // The new event reaches the owner's merged calendar on the next read; read its calendar now.
         db.sources.find({ userId: page.userId, connectionId: connection._id, calendarId: page.target.calendarId }).toArray()

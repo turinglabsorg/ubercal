@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 import { cleanHours, DEFAULT_HOURS, freeSlots } from "../src/booking.js";
-import { api, connectCalendars, fakeGoogle, request, signIn, startApp } from "./helpers.js";
+import { api, connectCalendars, fakeGoogle, fakeResend, request, signIn, startApp } from "./helpers.js";
 
 const ADA = { sub: "100000000000000000001", email: "ada@example.com", name: "Ada" };
 const READ_WRITE = "openid email https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/calendar.events.owned";
@@ -40,10 +40,10 @@ describe("free slots", () => {
 });
 
 describe("booking pages", () => {
-  async function owner(t, { write = true } = {}) {
+  async function owner(t, { write = true, resend } = {}) {
     const google = await fakeGoogle();
     t.after(google.close);
-    const running = await startApp(t, { google });
+    const running = await startApp(t, { google, resend });
     google.state.calendars[ADA.sub] = [{ id: "ada@example.com", summary: "Ada", primary: true, timeZone: "Europe/Rome", accessRole: "owner" }];
     google.put("ada@example.com", { id: "standup", iCalUID: "standup@google.com", status: "confirmed", summary: "Standup", start: { dateTime: "2026-11-02T09:30:00+01:00", timeZone: "Europe/Rome" }, end: { dateTime: "2026-11-02T10:00:00+01:00", timeZone: "Europe/Rome" }, recurrence: ["RRULE:FREQ=WEEKLY;BYDAY=MO"] });
     google.put("ada@example.com", { id: "gym", iCalUID: "gym@google.com", status: "confirmed", transparency: "transparent", summary: "Maybe gym", start: { dateTime: "2026-11-02T13:00:00+01:00" }, end: { dateTime: "2026-11-02T14:00:00+01:00" } });
@@ -52,7 +52,7 @@ describe("booking pages", () => {
     const me = (await api(running, cookie, "GET", "/me")).data;
     await api(running, cookie, "POST", "/sources", { kind: "google", connectionId: me.connections[0].id, calendarId: "ada@example.com" });
     const page = (await api(running, cookie, "POST", "/pages", { timeZone: "Europe/Rome" })).data.pages[0];
-    return { google, running, cookie, page, response, token: new URL(page.url).pathname.split("/").pop() };
+    return { google, running, cookie, page, response, resend, token: new URL(page.url).pathname.split("/").pop() };
   }
 
   const slots = async (running, token, duration = 30, from = "2026-11-02T00:00:00Z", to = "2026-11-03T00:00:00Z") =>
@@ -143,5 +143,46 @@ describe("booking pages", () => {
     assert.equal((await api(running, bob, "GET", "/slugs/ada")).data.available, false);
     assert.equal((await api(running, bob, "PATCH", `/pages/${bobPage.id}`, { slug: "ada" })).status, 409);
     assert.equal((await request(running.base, "/nobody-here")).status, 404);
+  });
+
+  test("a booking sends the guest a confirmation and the owner a notice, then reminders the day and the hour before", async (t) => {
+    const resend = await fakeResend();
+    t.after(resend.close);
+    const { running, token } = await owner(t, { resend });
+    const booked = await reserve(running, token, { duration: 30, start: rome(4, 10), name: "Bob Rossi", email: "bob@example.com", notes: "About <the launch>", timeZone: "America/New_York" });
+    assert.equal(booked.status, 201);
+    for (let i = 0; i < 20 && resend.sent.length < 2; i++) await new Promise((r) => setTimeout(r, 50));
+    const [guest, notice] = resend.sent;
+    assert.deepEqual(guest.to, ["bob@example.com"]);
+    assert.equal(guest.from, "ubercal <bookings@fluxkit.test>");
+    assert.equal(guest.reply_to, "ada@example.com");
+    assert.match(guest.subject, /^Booked: 30 minute meeting with Ada, Wednesday 4 November, 04:00–04:30 \(America\/New York\)$/);
+    assert.match(guest.html, /About &lt;the launch&gt;/);
+    assert.match(guest.html, /meet\.google\.com/);
+    assert.deepEqual(notice.to, ["ada@example.com"]);
+    assert.equal(notice.reply_to, "bob@example.com");
+    assert.match(notice.subject, /^New booking: Bob Rossi, Wednesday 4 November, 10:00–10:30 \(Europe\/Rome\)$/);
+    running.clock.now = Date.parse(rome(3, 10, 3));
+    await running.app.syncer.runOnce();
+    assert.match(resend.sent[2].subject, /^Tomorrow: 30 minute meeting with Ada/);
+    running.clock.now = Date.parse(rome(4, 9, 2));
+    await running.app.syncer.runOnce();
+    assert.match(resend.sent[3].subject, /^In an hour: 30 minute meeting with Ada$/);
+    running.clock.now = Date.parse(rome(4, 9, 7));
+    await running.app.syncer.runOnce();
+    assert.equal(resend.sent.length, 4, "each reminder goes once");
+  });
+
+  test("a booking made at the last minute gets no reminder it would not need", async (t) => {
+    const resend = await fakeResend();
+    t.after(resend.close);
+    const { running, token, cookie, page } = await owner(t, { resend });
+    await api(running, cookie, "PATCH", `/pages/${page.id}`, { noticeMinutes: 0 });
+    running.clock.now = Date.parse(rome(2, 10, 15));
+    assert.equal((await reserve(running, token, { duration: 30, start: rome(2, 11), name: "Bob", email: "bob@example.com" })).status, 201);
+    for (let i = 0; i < 20 && resend.sent.length < 2; i++) await new Promise((r) => setTimeout(r, 50));
+    running.clock.now = Date.parse(rome(2, 10, 20));
+    await running.app.syncer.runOnce();
+    assert.equal(resend.sent.length, 2, "only the confirmation and the notice");
   });
 });

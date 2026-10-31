@@ -8,7 +8,7 @@ Every calendar, one link. ubercal merges Google calendars and any `.ics` / `webc
 
 A share link also has its own dates: by default it shows what happens from the day it is made, with no end, and any start and end can be chosen, in the past or the future. A series is cut to those dates (it starts again at its first occurrence inside and ends with the link), so a calendar app never shows what the link leaves out.
 
-**Booking pages** work like Calendly: the owner chooses the durations (15 minutes to 2 hours), the weekly hours (several ranges a day), the time zone, the notice, how far ahead people may book and the gap between meetings. The page offers the times that are free in the whole merged calendar (free events aside), in the guest's own time zone; a booking is checked again, held, and written into a Google calendar the owner owns, and Google sends the guest the invitation, with a Meet link if the owner wants one. Writing needs one more Google permission, `calendar.events.owned`, asked only when the owner turns bookings on.
+**Booking pages** work like Calendly: the owner chooses the durations (15 minutes to 2 hours), the weekly hours (several ranges a day), the time zone, the notice, how far ahead people may book and the gap between meetings. The page offers the times that are free in the whole merged calendar (free events aside), in the guest's own time zone; a booking is checked again, held, and written into a Google calendar the owner owns, and Google sends the guest the invitation, with a Meet link if the owner wants one. Writing needs one more Google permission, `calendar.events.owned`, asked only when the owner turns bookings on. A booking page can take a short address of its own (`ubercal.fluxkit.dev/<name>`). With a Resend key, the guest gets a confirmation and reminders the day and the hour before, and the owner a notice; without one, Google's invitation is the only email.
 
 The app has four tabs: **accounts** (the Google accounts and links merged), **calendar** (the merged calendar by week, month or agenda, or as any share link shows it), **share** (the links) and **book** (the booking pages and what is coming up).
 
@@ -48,6 +48,7 @@ npm start
 | `UBERCAL_DATA_KEY` | Seals Google tokens and pasted links. Losing it means reconnecting every account. |
 | `FLUXKIT_GOOGLE_CLIENT_ID`, `FLUXKIT_GOOGLE_CLIENT_SECRET` | The Fluxkit Google OAuth client (scopes `openid email profile`, and `calendar.readonly` when someone connects their calendars). Without them the site runs and Google is off. |
 | `UBERCAL_SYNC_MINUTES` | The pass interval (default 5). |
+| `FLUXKIT_RESEND_API_KEY`, `UBERCAL_MAIL_FROM` | Booking emails through Resend, from `ubercal <bookings@fluxkit.dev>` by default. Optional. |
 
 `bin/run.sh` starts it with the secrets injected by [hush](https://github.com/turinglabsorg/hush), by name, and reads the other settings from `~/.ubercal/env`.
 

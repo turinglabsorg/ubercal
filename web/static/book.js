@@ -133,7 +133,7 @@
       button.disabled = true;
       button.lastChild.textContent = "booking…";
       try {
-        view.done = await call("reserve", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ duration: view.duration, start: view.start, name: node.name.value, email: node.email.value, notes: node.notes.value }) });
+        view.done = await call("reserve", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ duration: view.duration, start: view.start, name: node.name.value, email: node.email.value, notes: node.notes.value, timeZone: zone }) });
         view.done.email = node.email.value;
         render();
       } catch (error) {

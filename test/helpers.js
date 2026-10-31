@@ -159,6 +159,21 @@ export async function fakeHost() {
   return host;
 }
 
+/** Resend as ubercal sees it: every email it is asked to send lands in `sent`. */
+export async function fakeResend() {
+  const sent = [];
+  const server = http.createServer(async (req, res) => {
+    if (req.method === "POST" && req.url === "/emails" && req.headers.authorization === "Bearer re_test") {
+      const email = JSON.parse(await body(req));
+      sent.push(email);
+      return json(res, 200, { id: `email-${sent.length}` });
+    }
+    json(res, 401, { name: "validation_error", message: "API key is invalid" });
+  });
+  const port = await listen(server);
+  return { base: `http://127.0.0.1:${port}`, sent, close: () => new Promise((resolve) => server.close(resolve)) };
+}
+
 async function freePort() {
   const server = http.createServer();
   const port = await listen(server);
@@ -167,7 +182,7 @@ async function freePort() {
 }
 
 /** A running ubercal on its own database, with a clock the test moves. */
-export async function startApp(t, { google, allowPrivate = true, publicHost = "127.0.0.1", cookieDomain = "" } = {}) {
+export async function startApp(t, { google, resend, allowPrivate = true, publicHost = "127.0.0.1", cookieDomain = "" } = {}) {
   const port = await freePort();
   const clock = { now: Date.UTC(2026, 9, 31, 9, 0, 0) };
   const database = `ubercal_test_${randomBytes(5).toString("hex")}`;
@@ -178,6 +193,7 @@ export async function startApp(t, { google, allowPrivate = true, publicHost = "1
     googleAuthUrl: google ? `${google.base}/auth` : "", googleTokenUrl: google ? `${google.base}/token` : "",
     googleApiBase: google ? `${google.base}/calendar/v3` : "", googleRevokeUrl: google ? `${google.base}/revoke` : "",
     syncMinutes: 5, allowPrivate, webDir: new URL("../web", import.meta.url).pathname,
+    resendKey: resend ? "re_test" : "", resendApi: resend ? resend.base : "", mailFrom: "ubercal <bookings@fluxkit.test>",
   };
   const logs = [];
   const app = await createApp(settings, { now: () => clock.now, log: (...parts) => logs.push(parts.join(" ")) });

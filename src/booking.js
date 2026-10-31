@@ -4,6 +4,7 @@
  */
 import { occurrences } from "./agenda.js";
 import { renderFeed } from "./feeds.js";
+import { bookingEmail } from "./mail.js";
 import { isZone, wallClock, zonedToUtc } from "./tz.js";
 
 const DAY = 86400000;
@@ -89,4 +90,45 @@ export async function busyBetween(db, userId, from, to, now = Date.now()) {
       : [Date.parse(entry.start.at), Date.parse(entry.end.at)]);
   const booked = await db.appointments.find({ userId, status: { $ne: "cancelled" }, start: { $lt: new Date(to) }, end: { $gt: new Date(from) } }, { projection: { start: 1, end: 1 } }).toArray();
   return [...busy, ...booked.map((entry) => [entry.start.getTime(), entry.end.getTime()])];
+}
+
+/** The confirmation to the guest and the notice to the owner, once a booking is in Google. */
+export async function notifyBooking(context, appointmentId) {
+  const { db, mailer } = context;
+  if (!mailer?.enabled) return;
+  const appointment = await db.appointments.findOne({ _id: appointmentId });
+  if (!appointment) return;
+  const parts = await bookingParts(db, appointment);
+  if (!parts) return;
+  for (const kind of ["confirmed", "owner"]) await mailer.send(bookingEmail(kind, parts));
+}
+
+async function bookingParts(db, appointment) {
+  const page = await db.pages.findOne({ _id: appointment.pageId });
+  const owner = await db.users.findOne({ _id: appointment.userId });
+  if (!page || !owner) return null;
+  const connection = page.target ? await db.connections.findOne({ _id: page.target.connectionId }) : null;
+  return { appointment, page, ownerName: owner.name || "", ownerEmail: connection?.email || owner.email };
+}
+
+/**
+ * Reminders to guests: the day before and an hour before, each once, and only when
+ * the booking was made earlier than that. Claimed in Mongo before sending, so two
+ * passes never send the same one.
+ */
+export async function remind(context) {
+  const { db, mailer, now } = context;
+  if (!mailer?.enabled) return;
+  const at = now();
+  for (const [kind, ahead, field] of [["hour", 3600000, "remindedHour"], ["day", DAY, "remindedDay"]]) {
+    const due = await db.appointments.find({ status: "confirmed", start: { $gt: new Date(at), $lte: new Date(at + ahead) }, [field]: { $exists: false } }).toArray();
+    for (const appointment of due) {
+      const late = appointment.createdAt.getTime() > appointment.start.getTime() - ahead;
+      const soon = kind === "day" && appointment.start.getTime() - at <= 3600000;
+      const claimed = await db.appointments.findOneAndUpdate({ _id: appointment._id, [field]: { $exists: false } }, { $set: { [field]: late || soon ? "skipped" : new Date(at) } });
+      if (!claimed || late || soon) continue;
+      const parts = await bookingParts(db, appointment);
+      if (parts) await mailer.send(bookingEmail(kind, parts));
+    }
+  }
 }
