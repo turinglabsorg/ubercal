@@ -54,7 +54,7 @@ export class Google {
     return Boolean(this.clientId && this.clientSecret);
   }
 
-  authorizeUrl({ scopes, state, verifier, redirectUri, offline = false, loginHint = "", selectAccount = false }) {
+  authorizeUrl({ scopes, state, verifier, redirectUri, offline = false, loginHint = "", selectAccount = false, language = "" }) {
     const url = new URL(this.authUrl);
     const params = {
       client_id: this.clientId, redirect_uri: redirectUri, response_type: "code", scope: scopes.join(" "), state,
@@ -65,6 +65,7 @@ export class Google {
     if (offline) Object.assign(params, { access_type: "offline", prompt: "consent" });
     else if (selectAccount) params.prompt = "select_account";
     if (loginHint) params.login_hint = loginHint;
+    if (language) params.hl = language;
     for (const [key, value] of Object.entries(params)) url.searchParams.set(key, value);
     return url.toString();
   }

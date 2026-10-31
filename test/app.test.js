@@ -36,6 +36,8 @@ describe("the site and sign-in", () => {
     assert.equal(authorize.searchParams.get("scope"), "openid email profile");
     assert.equal(authorize.searchParams.get("code_challenge_method"), "S256");
     assert.equal(authorize.searchParams.get("redirect_uri"), `${running.origin}/auth/google/callback`);
+    assert.equal(new URL((await request(running.base, "/auth/google?hl=it")).headers.get("location")).searchParams.get("hl"), "it");
+    assert.equal(new URL((await request(running.base, "/auth/google?hl=xx")).headers.get("location")).searchParams.get("hl"), null);
   });
 
   test("signing in makes an account with one feed of every calendar", async (t) => {

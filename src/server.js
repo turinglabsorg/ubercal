@@ -337,14 +337,14 @@ export function createServer(context, config) {
     return sourceView(await db.sources.findOne({ _id: insertedId }));
   }
 
-  async function startGoogle(res, { purpose, next = "/app", loginHint = "", write = false }) {
+  async function startGoogle(res, { purpose, next = "/app", loginHint = "", write = false, language = "" }) {
     if (!google.configured) return redirect(res, `/?problem=${encodeURIComponent("Google sign-in is not open yet. Try again soon.")}`);
     const state = token(18);
     const verifier = randomBytes(48).toString("base64url");
     const flow = signJson(sessionKey, { state, verifier, purpose, next, write, exp: context.now() + 10 * 60000 });
     const calendar = purpose === "calendar";
     const scopes = calendar ? (write ? [...CALENDAR_SCOPES, WRITE_SCOPE] : CALENDAR_SCOPES) : SIGN_IN_SCOPES;
-    const location = google.authorizeUrl({ scopes, state, verifier, redirectUri, offline: calendar, loginHint, selectAccount: !calendar });
+    const location = google.authorizeUrl({ scopes, state, verifier, redirectUri, offline: calendar, loginHint, selectAccount: !calendar, language: LANGUAGES.includes(language) ? language : "" });
     redirect(res, location, { "Set-Cookie": cookie(OAUTH, flow, { maxAge: 600, path: "/auth" }) });
   }
 
@@ -735,14 +735,14 @@ export function createServer(context, config) {
     const bookMatch = /^\/book\/([A-Za-z0-9_-]{3,64})(?:\/(info|slots|reserve))?$/.exec(path);
     if (bookMatch && !bookMatch[2] && (req.method === "GET" || req.method === "HEAD")) return serveFile(req, res, "book.html", { page: true });
     if (bookMatch && bookMatch[2]) return bookingRoute(req, res, url, bookMatch[1], bookMatch[2]);
-    if (path === "/auth/google" && req.method === "GET") return startGoogle(res, { purpose: "signin", next: url.searchParams.get("next") || "/app" });
+    if (path === "/auth/google" && req.method === "GET") return startGoogle(res, { purpose: "signin", next: url.searchParams.get("next") || "/app", language: url.searchParams.get("hl") || "" });
     if (path === "/auth/google/calendar" && req.method === "GET") {
       const user = await currentUser(req);
       if (!user) return redirect(res, "/auth/google?next=/app");
       let loginHint = url.searchParams.get("hint") === "self" ? user.email : "";
       const account = url.searchParams.get("account");
       if (account) loginHint = (await db.connections.findOne({ _id: objectId(account), userId: user._id }))?.email || loginHint;
-      return startGoogle(res, { purpose: "calendar", loginHint, write: url.searchParams.get("write") === "1" });
+      return startGoogle(res, { purpose: "calendar", loginHint, write: url.searchParams.get("write") === "1", language: url.searchParams.get("hl") || "" });
     }
     if (path === "/auth/google/callback" && req.method === "GET") return finishGoogle(req, res, url);
     if (path === "/auth/session" && req.method === "GET") return send(res, 200, { signedIn: Boolean(await currentUser(req)) });
