@@ -30,7 +30,7 @@ const b64 = (data) => Buffer.from(JSON.stringify(data)).toString("base64url");
  */
 export async function fakeGoogle() {
   const state = {
-    codes: new Map(), access: new Map(), refresh: new Map(), revoked: [], calendars: {}, log: new Map(), seq: 0, pageSize: 2500, gone: new Set(), requests: [],
+    codes: new Map(), access: new Map(), refresh: new Map(), revoked: [], calendars: {}, log: new Map(), seq: 0, pageSize: 2500, gone: new Set(), requests: [], inserted: [],
   };
   const google = {
     state,
@@ -61,20 +61,20 @@ export async function fakeGoogle() {
         state.codes.delete(form.get("code"));
         if (!granted || !form.get("code_verifier")) return json(res, 400, { error: "invalid_grant" });
         const access = `at-${randomBytes(6).toString("hex")}`;
-        state.access.set(access, granted.person.sub);
+        state.access.set(access, { sub: granted.person.sub, scope: granted.scope });
         const result = { access_token: access, expires_in: 3600, scope: granted.scope, id_token: `${b64({ alg: "RS256" })}.${b64({ sub: granted.person.sub, email: granted.person.email, email_verified: true, name: granted.person.name || "" })}.sig` };
         if (granted.scope.includes("calendar")) {
           const refresh = `rt-${randomBytes(6).toString("hex")}`;
-          state.refresh.set(refresh, granted.person.sub);
+          state.refresh.set(refresh, { sub: granted.person.sub, scope: granted.scope });
           result.refresh_token = refresh;
         }
         return json(res, 200, result);
       }
       if (form.get("grant_type") === "refresh_token") {
-        const sub = state.refresh.get(form.get("refresh_token"));
-        if (!sub) return json(res, 400, { error: "invalid_grant", error_description: "Token has been expired or revoked." });
+        const grant = state.refresh.get(form.get("refresh_token"));
+        if (!grant) return json(res, 400, { error: "invalid_grant", error_description: "Token has been expired or revoked." });
         const access = `at-${randomBytes(6).toString("hex")}`;
-        state.access.set(access, sub);
+        state.access.set(access, grant);
         return json(res, 200, { access_token: access, expires_in: 3600 });
       }
       return json(res, 400, { error: "unsupported_grant_type" });
@@ -85,10 +85,18 @@ export async function fakeGoogle() {
       state.refresh.delete(tokenValue);
       return json(res, 200, {});
     }
-    const sub = state.access.get(String(req.headers.authorization || "").replace(/^Bearer /, ""));
+    const grant = state.access.get(String(req.headers.authorization || "").replace(/^Bearer /, ""));
+    const sub = grant?.sub;
     if (!sub) return json(res, 401, { error: { message: "Invalid Credentials", errors: [{ reason: "authError" }] } });
     if (url.pathname === "/calendar/v3/users/me/calendarList") return json(res, 200, { items: state.calendars[sub] || [] });
     const match = /^\/calendar\/v3\/calendars\/([^/]+)\/events$/.exec(url.pathname);
+    if (match && req.method === "POST") {
+      if (!/calendar\.events/.test(grant.scope)) return json(res, 403, { error: { message: "Request had insufficient authentication scopes.", errors: [{ reason: "insufficientPermissions" }] } });
+      const event = JSON.parse(await body(req));
+      const id = `booked${state.inserted.length + 1}`;
+      state.inserted.push({ calendarId: decodeURIComponent(match[1]), query: Object.fromEntries(url.searchParams), event });
+      return json(res, 200, { id, htmlLink: `https://calendar.google.com/event?eid=${id}`, ...(event.conferenceData ? { hangoutLink: "https://meet.google.com/abc-defg-hij" } : {}) });
+    }
     if (match) {
       const calendarId = decodeURIComponent(match[1]);
       if (!(state.calendars[sub] || []).some((calendar) => calendar.id === calendarId)) return json(res, 404, { error: { message: "Not Found", errors: [{ reason: "notFound" }] } });
@@ -207,8 +215,8 @@ export async function signIn(running, google, person) {
 }
 
 /** Google's calendar consent for `person`, made while signed in as `cookie`. */
-export async function connectCalendars(running, google, cookie, person, scope = "openid email https://www.googleapis.com/auth/calendar.readonly") {
-  const start = await request(running.base, "/auth/google/calendar", { cookie });
+export async function connectCalendars(running, google, cookie, person, scope = "openid email https://www.googleapis.com/auth/calendar.readonly", write = false) {
+  const start = await request(running.base, `/auth/google/calendar${write ? "?write=1" : ""}`, { cookie });
   const flow = cookiesOf(start).join("; ");
   const location = new URL(start.headers.get("location"));
   const back = await request(running.base, `/auth/google/callback?code=${google.code(person, scope)}&state=${location.searchParams.get("state")}`, { cookie: `${cookie}; ${flow}` });

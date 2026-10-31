@@ -8,8 +8,10 @@ import http from "node:http";
 import { extname, join, normalize, sep } from "node:path";
 import { ObjectId } from "mongodb";
 import { occurrences } from "./agenda.js";
+import { AHEAD, BUFFERS, busyBetween, cleanHours, DEFAULT_HOURS, DURATIONS, freeSlots, NOTICE } from "./booking.js";
 import { buildFeed, REFRESH_MINUTES, renderFeed, SHOWS } from "./feeds.js";
-import { CALENDAR_SCOPES, GoogleError, SIGN_IN_SCOPES } from "./google.js";
+import { CALENDAR_SCOPES, canWrite, GoogleError, SIGN_IN_SCOPES, WRITE_SCOPE } from "./google.js";
+import { isZone } from "./tz.js";
 import { normalizeUrl } from "./net.js";
 import { feedWindow } from "./window.js";
 import { open, seal, signJson, token, verifyJson } from "./secrets.js";
@@ -19,7 +21,7 @@ import { accessToken, freshenFeed, rebuildFeeds, syncSource } from "./sync.js";
 const SESSION = "fluxkit_session";
 const OAUTH = "ubercal_oauth";
 const SESSION_DAYS = 30;
-export const LIMITS = { sources: 25, feeds: 10 };
+export const LIMITS = { sources: 25, feeds: 10, pages: 10 };
 const MIME = {
   ".html": "text/html; charset=utf-8", ".css": "text/css; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".svg": "image/svg+xml",
   ".png": "image/png", ".ico": "image/x-icon", ".woff2": "font/woff2", ".json": "application/json", ".txt": "text/plain; charset=utf-8", ".webmanifest": "application/manifest+json",
@@ -146,19 +148,22 @@ export function createServer(context, config) {
   }
 
   async function state(user) {
-    const [connections, sources, feeds, lease] = await Promise.all([
+    const [connections, sources, feeds, lease, pages] = await Promise.all([
       db.connections.find({ userId: user._id }).sort({ createdAt: 1 }).toArray(),
       db.sources.find({ userId: user._id }).sort({ createdAt: 1 }).toArray(),
       db.feeds.find({ userId: user._id }, { projection: { ics: 0 } }).sort({ createdAt: 1 }).toArray(),
       db.leases.findOne({ _id: "sync" }),
+      db.pages.find({ userId: user._id }).sort({ createdAt: 1 }).toArray(),
     ]);
+    const upcoming = await db.appointments.find({ userId: user._id, status: "confirmed", end: { $gt: new Date(context.now()) } }).sort({ start: 1 }).limit(50).toArray();
     const last = lease?.finishedAt || null;
     return {
       user: { email: user.email, name: user.name || "", picture: user.picture || "" },
       google: { configured: google.configured },
-      connections: connections.map((connection) => ({ id: String(connection._id), email: connection.email, status: connection.status || "ok" })),
+      connections: connections.map((connection) => ({ id: String(connection._id), email: connection.email, status: connection.status || "ok", canWrite: canWrite(connection.scope) })),
       sources: sources.map(sourceView),
       feeds: feeds.map(feedView),
+      pages: pages.map((page) => pageView(page, connections, upcoming)),
       sync: { minutes: REFRESH_MINUTES, lastRunAt: last, nextRunAt: last ? new Date(last.getTime() + REFRESH_MINUTES * 60000) : null },
       limits: LIMITS,
     };
@@ -190,6 +195,71 @@ export function createServer(context, config) {
       settings.calendars = Object.fromEntries(entries.map(([id, show]) => [String(objectId(id)), show]));
     }
     return settings;
+  }
+
+  function pageView(page, connections, upcoming = []) {
+    const connection = page.target && connections.find((entry) => String(entry._id) === String(page.target.connectionId));
+    return {
+      id: String(page._id), name: page.name, description: page.description || "", url: `${publicUrl}/book/${page.token}`, durations: page.durations, hours: page.hours,
+      timeZone: page.timeZone, noticeMinutes: page.noticeMinutes, daysAhead: page.daysAhead, bufferMinutes: page.bufferMinutes, meet: page.meet !== false, active: page.active !== false,
+      target: page.target ? { connectionId: String(page.target.connectionId), calendarId: page.target.calendarId } : null,
+      ready: Boolean(connection && canWrite(connection.scope) && connection.status !== "revoked"),
+      upcoming: upcoming.filter((entry) => String(entry.pageId) === String(page._id)).slice(0, 10)
+        .map((entry) => ({ start: entry.start, end: entry.end, name: entry.name, email: entry.email })),
+    };
+  }
+
+  async function pageSettings(user, body) {
+    const settings = {};
+    if (body.name !== undefined) settings.name = cleanName(body.name, "Meeting");
+    if (body.description !== undefined) settings.description = String(body.description || "").trim().slice(0, 500);
+    if (body.durations !== undefined) {
+      const durations = Array.isArray(body.durations) ? [...new Set(body.durations.map(Number))].filter((value) => DURATIONS.includes(value)).sort((a, b) => a - b) : [];
+      if (!durations.length || durations.length !== new Set(body.durations).size) throw new HttpError(400, `Choose durations among ${DURATIONS.join(", ")} minutes.`);
+      settings.durations = durations;
+    }
+    if (body.hours !== undefined) {
+      const hours = cleanHours(body.hours);
+      if (!hours) throw new HttpError(400, "Each day takes up to four time ranges that do not overlap, each ending after it starts.");
+      settings.hours = hours;
+    }
+    if (body.timeZone !== undefined) {
+      if (!isZone(body.timeZone)) throw new HttpError(400, "Choose a time zone.");
+      settings.timeZone = body.timeZone;
+    }
+    for (const [key, allowed] of [["noticeMinutes", NOTICE], ["daysAhead", AHEAD], ["bufferMinutes", BUFFERS]]) {
+      if (body[key] === undefined) continue;
+      if (!allowed.includes(Number(body[key]))) throw new HttpError(400, "Choose one of the offered values.");
+      settings[key] = Number(body[key]);
+    }
+    if (body.meet !== undefined) settings.meet = Boolean(body.meet);
+    if (body.active !== undefined) settings.active = Boolean(body.active);
+    if (body.target !== undefined) {
+      if (body.target === null) settings.target = null;
+      else {
+        const connection = await db.connections.findOne({ _id: objectId(body.target?.connectionId), userId: user._id });
+        if (!connection) throw new HttpError(404, "Connect this Google account first.");
+        if (!canWrite(connection.scope)) throw new HttpError(409, "Let ubercal add events to this account first.");
+        let calendars;
+        try { calendars = await google.calendars(await accessToken(context, connection)); } catch (error) { throw new HttpError(502, error.message); }
+        const calendar = calendars.find((entry) => entry.id === String(body.target.calendarId || ""));
+        if (!calendar || calendar.access !== "owner") throw new HttpError(400, "Bookings go into a calendar you own.");
+        settings.target = { connectionId: connection._id, calendarId: calendar.id };
+      }
+    }
+    return settings;
+  }
+
+  async function createPage(user, body) {
+    if ((await db.pages.countDocuments({ userId: user._id })) >= LIMITS.pages) throw new HttpError(400, `You can have ${LIMITS.pages} booking pages.`);
+    const writer = (await db.connections.find({ userId: user._id, status: { $ne: "revoked" } }).toArray()).find((connection) => canWrite(connection.scope));
+    const page = {
+      userId: user._id, token: token(), name: "30 minute meeting", description: "", durations: [30], hours: DEFAULT_HOURS,
+      timeZone: isZone(body.timeZone) ? body.timeZone : "UTC", noticeMinutes: 240, daysAhead: 30, bufferMinutes: 0, meet: true, active: true,
+      target: writer ? { connectionId: writer._id, calendarId: writer.email } : null, createdAt: new Date(context.now()),
+      ...(await pageSettings(user, { ...body, timeZone: undefined })),
+    };
+    await db.pages.insertOne(page);
   }
 
   async function createFeed(user, body) {
@@ -255,20 +325,24 @@ export function createServer(context, config) {
     return sourceView(await db.sources.findOne({ _id: insertedId }));
   }
 
-  async function startGoogle(res, { purpose, next = "/app", loginHint = "" }) {
+  async function startGoogle(res, { purpose, next = "/app", loginHint = "", write = false }) {
     if (!google.configured) return redirect(res, `/?problem=${encodeURIComponent("Google sign-in is not open yet. Try again soon.")}`);
     const state = token(18);
     const verifier = randomBytes(48).toString("base64url");
-    const flow = signJson(sessionKey, { state, verifier, purpose, next, exp: context.now() + 10 * 60000 });
+    const flow = signJson(sessionKey, { state, verifier, purpose, next, write, exp: context.now() + 10 * 60000 });
     const calendar = purpose === "calendar";
-    const location = google.authorizeUrl({ scopes: calendar ? CALENDAR_SCOPES : SIGN_IN_SCOPES, state, verifier, redirectUri, offline: calendar, loginHint, selectAccount: !calendar });
+    const scopes = calendar ? (write ? [...CALENDAR_SCOPES, WRITE_SCOPE] : CALENDAR_SCOPES) : SIGN_IN_SCOPES;
+    const location = google.authorizeUrl({ scopes, state, verifier, redirectUri, offline: calendar, loginHint, selectAccount: !calendar });
     redirect(res, location, { "Set-Cookie": cookie(OAUTH, flow, { maxAge: 600, path: "/auth" }) });
   }
 
   async function finishGoogle(req, res, url) {
     const flow = verifyJson(sessionKey, parseCookies(req.headers.cookie)[OAUTH], context.now());
     const clear = cookie(OAUTH, "", { maxAge: 0, path: "/auth" });
-    const back = (where, problem) => redirect(res, `${where}${where.includes("?") ? "&" : "?"}problem=${encodeURIComponent(problem)}`, { "Set-Cookie": clear });
+    const back = (where, problem) => {
+      const [route, hash = ""] = where.split("#");
+      redirect(res, `${route}${route.includes("?") ? "&" : "?"}problem=${encodeURIComponent(problem)}${hash ? `#${hash}` : ""}`, { "Set-Cookie": clear });
+    };
     if (!flow || flow.state !== url.searchParams.get("state")) return back("/", "The sign-in took too long or was opened twice: try again.");
     if (url.searchParams.get("error")) return back(flow.purpose === "calendar" ? "/app" : "/", flow.purpose === "calendar" ? "Google did not share the calendars." : "Google sign-in was cancelled.");
     let granted;
@@ -297,6 +371,11 @@ export function createServer(context, config) {
         { upsert: true, returnDocument: "after" },
       );
       if (existing) await db.sources.updateMany({ connectionId: connection._id }, { $set: { status: "pending", error: "" } });
+      if (flow.write) {
+        if (!canWrite(granted.scope)) return back("/app#book", "ubercal can only add booked meetings when Google lets it: tick the box to add events.");
+        await db.pages.updateMany({ userId: user._id, target: null }, { $set: { target: { connectionId: connection._id, calendarId: claims.email } } });
+        return redirect(res, `/app?connected=${connection._id}&write=1#book`, { "Set-Cookie": clear });
+      }
       return redirect(res, `/app?connected=${connection._id}`, { "Set-Cookie": clear });
     }
     const user = await enroll(claims);
@@ -375,6 +454,116 @@ export function createServer(context, config) {
     res.end(req.method === "HEAD" ? undefined : body);
   }
 
+
+  /* ---------- booking pages, as the people who book see them ---------- */
+
+  const BUSY_TTL = 60000;
+  async function busyFor(page, from, to) {
+    const cache = (context.busyCache ||= new Map());
+    const key = String(page.userId);
+    const now = context.now();
+    let entry = cache.get(key);
+    if (!entry || entry.at < now - BUSY_TTL || entry.from > from || entry.to < to) {
+      const span = [Math.min(from, now - 86400000), Math.max(to, now + 92 * 86400000)];
+      entry = { at: now, from: span[0], to: span[1], busy: await busyBetween(db, page.userId, span[0], span[1], now) };
+      cache.set(key, entry);
+    }
+    return entry.busy;
+  }
+
+  async function publicPage(pageToken) {
+    const page = await db.pages.findOne({ token: pageToken, active: { $ne: false } });
+    if (!page) throw new HttpError(404, "There is no booking page at this link.");
+    return page;
+  }
+
+  async function bookingTarget(page) {
+    if (!page.target) return null;
+    const connection = await db.connections.findOne({ _id: page.target.connectionId, userId: page.userId });
+    return connection && canWrite(connection.scope) && connection.status !== "revoked" ? connection : null;
+  }
+
+  // One booking at a time per owner, so two people never take the same slot.
+  const bookingQueue = new Map();
+  function oneAtATime(key, work) {
+    const previous = bookingQueue.get(key) || Promise.resolve();
+    const next = previous.catch(() => {}).then(work);
+    const settled = next.catch(() => {});
+    bookingQueue.set(key, settled);
+    settled.then(() => { if (bookingQueue.get(key) === settled) bookingQueue.delete(key); });
+    return next;
+  }
+
+  async function bookingRoute(req, res, url, pageToken, action) {
+    const page = await publicPage(pageToken);
+    if (action === "info" && req.method === "GET") {
+      const owner = await db.users.findOne({ _id: page.userId });
+      return send(res, 200, {
+        name: page.name, description: page.description || "", durations: page.durations, timeZone: page.timeZone, daysAhead: page.daysAhead, meet: page.meet !== false,
+        owner: { name: owner?.name || owner?.email?.split("@")[0] || "", picture: owner?.picture || "" }, ready: Boolean(await bookingTarget(page)),
+      });
+    }
+    if (action === "slots" && req.method === "GET") {
+      const duration = Number(url.searchParams.get("duration"));
+      const from = Date.parse(url.searchParams.get("from") || "");
+      const to = Date.parse(url.searchParams.get("to") || "");
+      if (!page.durations.includes(duration)) throw new HttpError(400, "Choose one of the offered durations.");
+      if (!Number.isFinite(from) || !Number.isFinite(to) || to <= from || to - from > 45 * 86400000) throw new HttpError(400, "Ask for up to six weeks at a time.");
+      const slots = freeSlots({ page, busy: await busyFor(page, from, to), now: context.now(), from, to, duration });
+      return send(res, 200, { slots: slots.map((at) => new Date(at).toISOString()) }, { "Cache-Control": "no-store" });
+    }
+    if (action === "reserve" && req.method === "POST") {
+      const from = req.headers.origin;
+      if (from && from !== origin) throw new HttpError(403, "Wrong origin.");
+      const body = await readJson(req);
+      const duration = Number(body.duration);
+      const start = Date.parse(body.start || "");
+      const name = String(body.name || "").replace(/\s+/g, " ").trim().slice(0, 100);
+      const email = String(body.email || "").trim().toLowerCase();
+      const notes = String(body.notes || "").trim().slice(0, 2000);
+      if (!page.durations.includes(duration) || !Number.isFinite(start)) throw new HttpError(400, "Choose a time from the list.");
+      if (!name) throw new HttpError(400, "Write your name.");
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email) || email.length > 200) throw new HttpError(400, "Write an email address that works: the invitation goes there.");
+      throttle(`book:${page._id}`, 12, 3600000);
+      throttle(`book:${page._id}:${email}`, 3, 86400000);
+      const connection = await bookingTarget(page);
+      if (!connection) throw new HttpError(409, "This booking page is not open yet.");
+      return oneAtATime(String(page.userId), async () => {
+        context.busyCache?.delete(String(page.userId));
+        const free = freeSlots({ page, busy: await busyFor(page, start - 86400000, start + 86400000), now: context.now(), from: start, to: start + 1, duration });
+        if (!free.includes(start)) throw new HttpError(409, "Someone took this time a moment ago: choose another.");
+        const end = start + duration * 60000;
+        const now = new Date(context.now());
+        const { insertedId } = await db.appointments.insertOne({ userId: page.userId, pageId: page._id, start: new Date(start), end: new Date(end), name, email, notes, status: "pending", createdAt: now });
+        let event;
+        try {
+          const owner = await db.users.findOne({ _id: page.userId });
+          event = await google.insertEvent(await accessToken(context, connection), page.target.calendarId, {
+            summary: `${page.name}: ${name}`,
+            description: `${notes ? `${notes}\n\n` : ""}Booked by ${name} <${email}> through ubercal (${publicUrl}).`,
+            start: { dateTime: new Date(start).toISOString(), timeZone: page.timeZone },
+            end: { dateTime: new Date(end).toISOString(), timeZone: page.timeZone },
+            attendees: [{ email, displayName: name }, ...(owner?.email ? [{ email: connection.email, self: true, responseStatus: "accepted" }] : [])],
+            ...(page.meet !== false ? { conferenceData: { createRequest: { requestId: String(insertedId), conferenceSolutionKey: { type: "hangoutsMeet" } } } } : {}),
+            reminders: { useDefault: true },
+          }, { meet: page.meet !== false });
+        } catch (error) {
+          await db.appointments.deleteOne({ _id: insertedId });
+          context.log?.("booking failed", String(page._id), error?.status || "", error?.code || error?.message);
+          throw new HttpError(502, "Google Calendar did not take the booking: try again, or choose another time.");
+        }
+        const meet = event.hangoutLink || event.conferenceData?.entryPoints?.find((entry) => entry.entryPointType === "video")?.uri || "";
+        await db.appointments.updateOne({ _id: insertedId }, { $set: { status: "confirmed", eventId: String(event.id || ""), meet } });
+        context.busyCache?.delete(String(page.userId));
+        // The new event reaches the owner's merged calendar on the next read; read its calendar now.
+        db.sources.find({ userId: page.userId, connectionId: connection._id, calendarId: page.target.calendarId }).toArray()
+          .then((sources) => Promise.all(sources.map((source) => syncSource(context, source)))).then(() => rebuildFeeds(context, [page.userId])).catch(() => {});
+        return send(res, 201, { start: new Date(start).toISOString(), end: new Date(end).toISOString(), meet, name: page.name });
+      });
+    }
+    throw new HttpError(404, "Not found.");
+  }
+
   async function api(req, res, url, user) {
     const method = req.method;
     const parts = url.pathname.split("/").filter(Boolean).slice(1);
@@ -406,7 +595,10 @@ export function createServer(context, config) {
         try { await google.revoke(open(dataKey, connection.refreshToken)); } catch {}
       }
       await removeSources(user, {});
-      await Promise.all([db.feeds.deleteMany({ userId: user._id }), db.connections.deleteMany({ userId: user._id }), db.users.deleteOne({ _id: user._id })]);
+      await Promise.all([
+        db.feeds.deleteMany({ userId: user._id }), db.pages.deleteMany({ userId: user._id }), db.appointments.deleteMany({ userId: user._id }),
+        db.connections.deleteMany({ userId: user._id }), db.users.deleteOne({ _id: user._id }),
+      ]);
       return send(res, 200, { ok: true }, { "Set-Cookie": sessionCookie("", 0) });
     }
     if (area === "connections" && id) {
@@ -461,6 +653,27 @@ export function createServer(context, config) {
         return send(res, 200, await state(user));
       }
     }
+    if (area === "pages") {
+      if (!id && method === "POST") {
+        await createPage(user, body);
+        return send(res, 201, await state(user));
+      }
+      const page = id ? await db.pages.findOne({ _id: objectId(id), userId: user._id }) : null;
+      if (id && !page) throw new HttpError(404, "This booking page is not yours.");
+      if (page && !action && method === "PATCH") {
+        await db.pages.updateOne({ _id: page._id }, { $set: await pageSettings(user, body) });
+        context.busyCache?.delete(String(user._id));
+        return send(res, 200, await state(user));
+      }
+      if (page && action === "rotate" && method === "POST") {
+        await db.pages.updateOne({ _id: page._id }, { $set: { token: token() } });
+        return send(res, 200, await state(user));
+      }
+      if (page && !action && method === "DELETE") {
+        await db.pages.deleteOne({ _id: page._id });
+        return send(res, 200, await state(user));
+      }
+    }
     if (area === "feeds") {
       if (!id && method === "POST") {
         await createFeed(user, body);
@@ -492,11 +705,17 @@ export function createServer(context, config) {
     if (path === "/healthz") return send(res, 200, "ok");
     const feedMatch = /^\/feed\/([A-Za-z0-9_-]{16,64})(?:\.ics)?$/.exec(path);
     if (feedMatch && (req.method === "GET" || req.method === "HEAD")) return serveFeed(req, res, feedMatch[1]);
+    const bookMatch = /^\/book\/([A-Za-z0-9_-]{16,64})(?:\/(info|slots|reserve))?$/.exec(path);
+    if (bookMatch && !bookMatch[2] && (req.method === "GET" || req.method === "HEAD")) return serveFile(req, res, "book.html", { page: true });
+    if (bookMatch && bookMatch[2]) return bookingRoute(req, res, url, bookMatch[1], bookMatch[2]);
     if (path === "/auth/google" && req.method === "GET") return startGoogle(res, { purpose: "signin", next: url.searchParams.get("next") || "/app" });
     if (path === "/auth/google/calendar" && req.method === "GET") {
       const user = await currentUser(req);
       if (!user) return redirect(res, "/auth/google?next=/app");
-      return startGoogle(res, { purpose: "calendar", loginHint: url.searchParams.get("hint") === "self" ? user.email : "" });
+      let loginHint = url.searchParams.get("hint") === "self" ? user.email : "";
+      const account = url.searchParams.get("account");
+      if (account) loginHint = (await db.connections.findOne({ _id: objectId(account), userId: user._id }))?.email || loginHint;
+      return startGoogle(res, { purpose: "calendar", loginHint, write: url.searchParams.get("write") === "1" });
     }
     if (path === "/auth/google/callback" && req.method === "GET") return finishGoogle(req, res, url);
     if (path === "/auth/session" && req.method === "GET") return send(res, 200, { signedIn: Boolean(await currentUser(req)) });

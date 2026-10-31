@@ -10,6 +10,13 @@ import { formatDate, formatLocal, formatUtc, isZone, wallClock } from "./tz.js";
 
 export const SIGN_IN_SCOPES = ["openid", "email", "profile"];
 export const CALENDAR_SCOPES = ["openid", "email", "https://www.googleapis.com/auth/calendar.readonly"];
+// Booking writes events, and only on calendars the person owns: the narrowest scope that can.
+export const WRITE_SCOPE = "https://www.googleapis.com/auth/calendar.events.owned";
+
+/** Whether a connection's granted scopes let ubercal add events. */
+export function canWrite(scope = "") {
+  return /calendar\.events(?:\.owned)?(?:\s|$)|auth\/calendar(?:\s|$)/.test(String(scope));
+}
 
 export class GoogleError extends Error {
   constructor(message, { status = 0, code = "" } = {}) {
@@ -95,18 +102,23 @@ export class Google {
     } catch {}
   }
 
-  async api(accessToken, path, params = {}) {
+  async api(accessToken, path, params = {}, body = undefined) {
     const url = new URL(`${this.apiBase}${path}`);
     for (const [key, value] of Object.entries(params)) if (value !== undefined && value !== "") url.searchParams.set(key, String(value));
     for (let attempt = 0; ; attempt += 1) {
       let response;
       try {
-        response = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` }, signal: AbortSignal.timeout(this.timeoutMs) });
+        response = await fetch(url, {
+          method: body === undefined ? "GET" : "POST",
+          headers: { Authorization: `Bearer ${accessToken}`, ...(body === undefined ? {} : { "Content-Type": "application/json" }) },
+          body: body === undefined ? undefined : JSON.stringify(body),
+          signal: AbortSignal.timeout(this.timeoutMs),
+        });
       } catch {
         if (attempt < 2) { await new Promise((resolve) => setTimeout(resolve, 500 * 2 ** attempt)); continue; }
         throw new GoogleError("Google Calendar did not answer.", { code: "unreachable" });
       }
-      if ((response.status === 429 || response.status >= 500) && attempt < 2) {
+      if ((response.status === 429 || response.status >= 500) && attempt < 2 && body === undefined) {
         await new Promise((resolve) => setTimeout(resolve, 1000 * 2 ** attempt));
         continue;
       }
@@ -130,6 +142,11 @@ export class Google {
     return items.map((item) => ({
       id: item.id, name: item.summaryOverride || item.summary || item.id, color: item.backgroundColor || "", primary: Boolean(item.primary), timeZone: item.timeZone || "", access: item.accessRole || "",
     }));
+  }
+
+  /** A booked meeting written into a calendar; Google sends the invitation to the attendees. */
+  async insertEvent(accessToken, calendarId, event, { meet = false } = {}) {
+    return this.api(accessToken, `/calendars/${encodeURIComponent(calendarId)}/events`, { sendUpdates: "all", ...(meet ? { conferenceDataVersion: 1 } : {}) }, event);
   }
 
   /**
