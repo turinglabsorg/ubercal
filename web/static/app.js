@@ -92,7 +92,9 @@
 
   function setState(next) {
     state = next;
+    cal.cache.clear();
     render();
+    if (currentTab() === "calendar") loadCalendar();
   }
 
   function renderWho() {
@@ -312,6 +314,236 @@
     }
   }
 
+
+  /* ---------- tabs ---------- */
+
+  const TABS = ["accounts", "calendar", "share"];
+  function currentTab() {
+    const asked = location.hash.slice(1);
+    if (TABS.includes(asked)) return asked;
+    return state?.sources.length ? "calendar" : "accounts";
+  }
+
+  function showTab() {
+    const tab = currentTab();
+    for (const button of document.querySelectorAll("[data-tab]")) {
+      const on = button.dataset.tab === tab;
+      button.setAttribute("aria-selected", String(on));
+      button.tabIndex = on ? 0 : -1;
+    }
+    for (const panel of document.querySelectorAll("[data-panel]")) panel.hidden = panel.dataset.panel !== tab;
+    if (tab === "calendar") loadCalendar();
+  }
+
+  for (const button of document.querySelectorAll("[data-tab]")) {
+    button.addEventListener("click", () => {
+      if (location.hash.slice(1) !== button.dataset.tab) history.replaceState(null, "", `#${button.dataset.tab}`);
+      showTab();
+    });
+    button.addEventListener("keydown", (event) => {
+      if (!["ArrowLeft", "ArrowRight"].includes(event.key)) return;
+      const index = (TABS.indexOf(button.dataset.tab) + (event.key === "ArrowRight" ? 1 : TABS.length - 1)) % TABS.length;
+      document.querySelector(`[data-tab="${TABS[index]}"]`).click();
+      document.querySelector(`[data-tab="${TABS[index]}"]`).focus();
+    });
+  }
+  window.addEventListener("hashchange", showTab);
+
+  /* ---------- the calendar view ---------- */
+
+  const HOUR = 46;
+  const cal = { view: matchMedia("(max-width: 760px)").matches ? "agenda" : "week", anchor: new Date(), as: "", cache: new Map(), data: null, error: "" };
+  const dayStart = (date) => { const copy = new Date(date); copy.setHours(0, 0, 0, 0); return copy; };
+  const addDays = (date, days) => { const copy = new Date(date); copy.setDate(copy.getDate() + days); return copy; };
+  const weekStart = (date) => addDays(dayStart(date), -((dayStart(date).getDay() + 6) % 7));
+  const dayKey = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+  const fromKey = (key) => { const [y, m, d] = key.split("-").map(Number); return new Date(y, m - 1, d); };
+  const timeText = (date) => date.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+
+  function calRange() {
+    if (cal.view === "week") { const start = weekStart(cal.anchor); return [start, addDays(start, 7)]; }
+    if (cal.view === "month") { const start = weekStart(new Date(cal.anchor.getFullYear(), cal.anchor.getMonth(), 1)); return [start, addDays(start, 42)]; }
+    const start = dayStart(cal.anchor);
+    return [start, addDays(start, 14)];
+  }
+
+  function calTitle([start, end]) {
+    if (cal.view === "month") return cal.anchor.toLocaleDateString(undefined, { month: "long", year: "numeric" });
+    const last = addDays(end, -1);
+    const sameMonth = start.getMonth() === last.getMonth();
+    return `${start.toLocaleDateString(undefined, { day: "numeric", ...(sameMonth ? {} : { month: "short" }) })} – ${last.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })}`;
+  }
+
+  /** Each occurrence as local days and times, with the color and look of its calendar. */
+  function placed(entry) {
+    const index = state.sources.findIndex((source) => source.id === entry.source);
+    const source = state.sources[index];
+    const start = entry.allDay ? fromKey(entry.start.date) : new Date(entry.start.at);
+    const end = entry.allDay ? fromKey(entry.end.date) : new Date(entry.end.at);
+    return { ...entry, startDate: start, endDate: end > start ? end : new Date(start.getTime() + (entry.allDay ? 86400000 : 0)), color: source ? colorOf(source, index) : "var(--ink-3)", calendar: source?.name || "" };
+  }
+
+  function chip(item, { compact = false } = {}) {
+    const busy = item.show === "busy";
+    const label = busy ? "Busy" : item.title || "(No title)";
+    const time = item.allDay ? "" : timeText(item.startDate);
+    const node = el("button", { type: "button", class: `chip${busy ? " busy" : ""}${item.free ? " free" : ""}`, color: item.color, title: `${label}${time ? ` · ${time}` : ""}${item.calendar ? ` · ${item.calendar}` : ""}` },
+      compact && time ? el("span", { class: "chip-time", text: time }) : null,
+      el("span", { class: "chip-title", text: label }));
+    node.addEventListener("click", () => toast(`${label} · ${item.allDay ? "all day" : `${timeText(item.startDate)}–${timeText(item.endDate)}`}${item.calendar ? ` · ${item.calendar}` : ""}${!busy && item.location ? ` · ${item.location}` : ""}`));
+    return node;
+  }
+
+  /** Side-by-side columns for events that overlap within a day. */
+  function columns(items) {
+    const sorted = [...items].sort((a, b) => a.top - b.top || b.height - a.height);
+    let cluster = [];
+    let clusterEnd = -1;
+    const flush = () => {
+      const lanes = [];
+      for (const item of cluster) {
+        let lane = lanes.findIndex((end) => end <= item.top);
+        if (lane < 0) { lane = lanes.length; lanes.push(0); }
+        lanes[lane] = item.top + item.height;
+        item.lane = lane;
+      }
+      for (const item of cluster) item.lanes = lanes.length;
+      cluster = [];
+    };
+    for (const item of sorted) {
+      if (item.top >= clusterEnd && cluster.length) { flush(); clusterEnd = -1; }
+      cluster.push(item);
+      clusterEnd = Math.max(clusterEnd, item.top + item.height);
+    }
+    flush();
+    return sorted;
+  }
+
+  function renderWeek([start], items) {
+    const days = Array.from({ length: 7 }, (_, index) => addDays(start, index));
+    const today = dayKey(new Date());
+    const allDay = items.filter((item) => item.allDay || item.endDate - item.startDate >= 86400000);
+    const timed = items.filter((item) => !allDay.includes(item));
+    const head = el("div", { class: "week-head" }, el("div", { class: "gutter" }),
+      days.map((day) => el("div", { class: `day-head${dayKey(day) === today ? " today" : ""}` },
+        el("span", { text: day.toLocaleDateString(undefined, { weekday: "short" }) }), el("b", { text: String(day.getDate()) }))));
+    const allDayRow = el("div", { class: "week-allday" }, el("div", { class: "gutter", text: "all day" }),
+      days.map((day) => el("div", { class: "allday-cell" }, allDay.filter((item) => item.startDate < addDays(day, 1) && item.endDate > day).map((item) => chip(item)))));
+    const grid = el("div", { class: "week-grid" });
+    grid.style.setProperty("--hour", `${HOUR}px`);
+    grid.append(el("div", { class: "hours" }, Array.from({ length: 24 }, (_, hour) => el("span", { text: hour ? `${String(hour).padStart(2, "0")}:00` : "" }))));
+    for (const day of days) {
+      const column = el("div", { class: `day-col${dayKey(day) === today ? " today" : ""}` });
+      const next = addDays(day, 1);
+      const inDay = timed.filter((item) => item.startDate < next && item.endDate > day).map((item) => {
+        const from = Math.max(item.startDate - day, 0) / 60000;
+        const to = Math.min(item.endDate - day, 86400000) / 60000;
+        return { item, top: from / 60 * HOUR, height: Math.max((to - from) / 60 * HOUR, 22) };
+      });
+      for (const block of columns(inDay)) {
+        const node = chip(block.item, { compact: true });
+        node.classList.add("block");
+        if (block.height < 40) node.classList.add("short");
+        node.style.top = `${block.top}px`;
+        node.style.height = `${block.height - 2}px`;
+        node.style.left = `calc(${(block.lane / block.lanes) * 100}% + 2px)`;
+        node.style.width = `calc(${100 / block.lanes}% - 4px)`;
+        column.append(node);
+      }
+      if (dayKey(day) === today) {
+        const now = new Date();
+        const line = el("div", { class: "now-line" });
+        line.style.top = `${(now.getHours() * 60 + now.getMinutes()) / 60 * HOUR}px`;
+        column.append(line);
+      }
+      grid.append(column);
+    }
+    const scroller = el("div", { class: "week-scroll" }, grid);
+    requestAnimationFrame(() => { scroller.scrollTop = 7.5 * HOUR; });
+    return el("div", { class: "week" }, head, allDayRow, scroller);
+  }
+
+  function renderMonth([start], items) {
+    const month = cal.anchor.getMonth();
+    const today = dayKey(new Date());
+    const names = Array.from({ length: 7 }, (_, index) => addDays(start, index).toLocaleDateString(undefined, { weekday: "short" }));
+    return el("div", { class: "month" },
+      names.map((name) => el("div", { class: "month-name", text: name })),
+      Array.from({ length: 42 }, (_, index) => {
+        const day = addDays(start, index);
+        const inDay = items.filter((item) => item.startDate < addDays(day, 1) && item.endDate > day);
+        return el("div", { class: `month-cell${day.getMonth() === month ? "" : " other"}${dayKey(day) === today ? " today" : ""}` },
+          el("span", { class: "month-day", text: String(day.getDate()) }),
+          inDay.slice(0, 3).map((item) => chip(item, { compact: true })),
+          inDay.length > 3 ? el("span", { class: "more", text: `+${inDay.length - 3} more` }) : null);
+      }));
+  }
+
+  function renderAgenda([start], items) {
+    const days = Array.from({ length: 14 }, (_, index) => addDays(start, index));
+    const today = dayKey(new Date());
+    const rows = days.map((day) => {
+      const inDay = items.filter((item) => item.startDate < addDays(day, 1) && item.endDate > day);
+      if (!inDay.length) return null;
+      return el("div", { class: `agenda-day${dayKey(day) === today ? " today" : ""}` },
+        el("div", { class: "agenda-date" }, el("b", { text: String(day.getDate()) }), el("span", { text: day.toLocaleDateString(undefined, { weekday: "short", month: "short" }) })),
+        el("div", { class: "agenda-items" }, inDay.map((item) => el("div", { class: "agenda-item" },
+          el("span", { class: "agenda-time", text: item.allDay || item.endDate - item.startDate >= 86400000 ? "all day" : `${timeText(item.startDate)}–${timeText(item.endDate)}` }),
+          chip(item)))));
+    }).filter(Boolean);
+    return rows.length ? el("div", { class: "agenda" }, rows) : el("p", { class: "empty", text: "Nothing in these two weeks." });
+  }
+
+  function renderCalendar() {
+    const range = calRange();
+    $("[data-cal-title]").textContent = calTitle(range);
+    for (const button of document.querySelectorAll("[data-view]")) button.setAttribute("aria-pressed", String(button.dataset.view === cal.view));
+    const select = $("[data-cal-as]");
+    select.replaceChildren(el("option", { value: "", text: "everything (only you)" }), ...state.feeds.map((feed) => el("option", { value: feed.id, text: `as “${feed.name}”` })));
+    select.value = state.feeds.some((feed) => feed.id === cal.as) ? cal.as : "";
+    const body = $("[data-cal-body]");
+    if (!state.sources.length) {
+      body.replaceChildren(el("div", { class: "cal-empty" }, el("p", { text: "Your merged calendar shows up here once it has calendars in it." }), el("a", { class: "btn primary", href: "#accounts", text: "add calendars" })));
+      return;
+    }
+    if (cal.error) { body.replaceChildren(el("p", { class: "link-error", text: cal.error })); return; }
+    if (!cal.data) { body.replaceChildren(el("p", { class: "empty", text: "Reading your calendar…" })); return; }
+    const items = cal.data.map(placed);
+    body.replaceChildren(cal.view === "week" ? renderWeek(range, items) : cal.view === "month" ? renderMonth(range, items) : renderAgenda(range, items));
+  }
+
+  async function loadCalendar() {
+    if (!state) return;
+    const [from, to] = calRange();
+    const key = `${cal.as}|${from.toISOString()}|${to.toISOString()}`;
+    cal.error = "";
+    if (!cal.cache.has(key)) {
+      cal.data = null;
+      cal.cache.set(key, call("GET", `/calendar?from=${encodeURIComponent(from.toISOString())}&to=${encodeURIComponent(to.toISOString())}${cal.as ? `&link=${cal.as}` : ""}`).then((data) => data.occurrences));
+    }
+    renderCalendar();
+    try {
+      const data = await cal.cache.get(key);
+      if (key !== `${cal.as}|${calRange()[0].toISOString()}|${calRange()[1].toISOString()}`) return;
+      cal.data = data;
+    } catch (error) {
+      cal.cache.delete(key);
+      cal.error = error.message;
+    }
+    renderCalendar();
+  }
+
+  const step = (direction) => {
+    if (cal.view === "month") cal.anchor = new Date(cal.anchor.getFullYear(), cal.anchor.getMonth() + direction, 1);
+    else cal.anchor = addDays(cal.anchor, (cal.view === "week" ? 7 : 14) * direction);
+    loadCalendar();
+  };
+  $("[data-cal-prev]").addEventListener("click", () => step(-1));
+  $("[data-cal-next]").addEventListener("click", () => step(1));
+  $("[data-cal-today]").addEventListener("click", () => { cal.anchor = new Date(); loadCalendar(); });
+  for (const button of document.querySelectorAll("[data-view]")) button.addEventListener("click", () => { cal.view = button.dataset.view; loadCalendar(); });
+  $("[data-cal-as]").addEventListener("change", (event) => { cal.as = event.target.value; loadCalendar(); });
+
   $("[data-add-link]").addEventListener("submit", async (event) => {
     event.preventDefault();
     const form = event.currentTarget;
@@ -356,10 +588,11 @@
     if (params.get("problem")) toast(params.get("problem"), "bad");
     const connected = state.connections.find((connection) => connection.id === params.get("connected"));
     if (connected) {
+      history.replaceState(null, "", "/app#accounts");
       toast(`${connected.email} is connected. Add the calendars you want to merge.`, "good");
       await togglePicker(connected);
-    }
-    if (params.toString()) history.replaceState(null, "", "/app");
+    } else if (params.toString()) history.replaceState(null, "", `/app${location.hash}`);
+    showTab();
     tick();
     setInterval(tick, 1000);
     setInterval(() => { if (!document.hidden) render(); }, 60000);

@@ -239,6 +239,19 @@ describe("Google calendars", () => {
     assert.match((await feedText(running, feed)).text, /Standup/);
   });
 
+  test("the calendar view expands the merged calendar: series in its zone, the moved occurrence, not the cancelled one", async (t) => {
+    const { running, cookie, connection } = await setup(t);
+    const source = (await api(running, cookie, "POST", "/sources", { kind: "google", connectionId: connection.id, calendarId: "ada@example.com" })).data.source;
+    const { status, data } = await api(running, cookie, "GET", "/calendar?from=2026-11-01T00:00:00Z&to=2026-11-22T00:00:00Z");
+    assert.equal(status, 200);
+    const standups = data.occurrences.filter((entry) => /^Standup/.test(entry.title)).map((entry) => [entry.start.at, entry.title]);
+    assert.deepEqual(standups, [["2026-11-02T08:30:00.000Z", "Standup"], ["2026-11-09T10:00:00.000Z", "Standup (moved)"]]);
+    assert.ok(data.occurrences.every((entry) => entry.source === source.id));
+    assert.equal(data.occurrences.find((entry) => entry.title === "Maybe gym").free, true);
+    assert.ok(!data.occurrences.some((entry) => /Lunch/.test(entry.title)));
+    assert.equal((await api(running, cookie, "GET", "/calendar?from=2026-11-01T00:00:00Z&to=2027-03-01T00:00:00Z")).status, 400);
+  });
+
   test("a consent without the calendar box ticked connects nothing", async (t) => {
     const google = await fakeGoogle();
     t.after(google.close);
@@ -286,6 +299,8 @@ describe("share links", () => {
     ({ text } = await feedText(running, feed));
     assert.doesNotMatch(text, /Board meeting|Budget/);
     assert.match(text, /SUMMARY:Busy/);
+    const seen = (await api(running, cookie, "GET", `/calendar?from=2026-11-01T00:00:00Z&to=2026-11-08T00:00:00Z&link=${feed.id}`)).data.occurrences;
+    assert.deepEqual(seen.map((entry) => [entry.title, entry.show]).sort(), [["Busy", "busy"], ["Busy", "busy"]]);
     const all = created.data.feeds.find((entry) => entry.name === "All my calendars");
     assert.match((await feedText(running, all)).text, /SUMMARY:Doctor/);
   });

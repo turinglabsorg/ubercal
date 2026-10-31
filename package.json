@@ -17,6 +17,7 @@
     "url": "https://github.com/turinglabsorg/ubercal.git"
   },
   "dependencies": {
+    "ical.js": "2.2.1",
     "mongodb": "7.7.0"
   }
 }

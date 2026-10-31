@@ -23,6 +23,8 @@
     <symbol id="i-trash" viewBox="0 0 16 16"><path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8.5h5.8l.6-8.5" fill="none" stroke="currentColor" stroke-width="1.4"/></symbol>
     <symbol id="i-plus" viewBox="0 0 16 16"><path d="M8 3v10M3 8h10" fill="none" stroke="currentColor" stroke-width="1.6"/></symbol>
     <symbol id="i-down" viewBox="0 0 16 16"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.5"/></symbol>
+    <symbol id="i-left" viewBox="0 0 16 16"><path d="M10 3 5 8l5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-right" viewBox="0 0 16 16"><path d="m6 3 5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
     <symbol id="i-sun" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M5.3 18.7l1.6-1.6M17.1 6.9l1.6-1.6"/></g></symbol>
     <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/></symbol>
   </svg>
@@ -46,33 +48,66 @@
       <div class="readout"><p class="plate">share links</p><span class="digits" data-links>00</span><span class="meta" data-links-meta></span></div>
     </section>
 
-    <main class="board">
-      <section class="panel" aria-labelledby="calendars-title">
-        <div class="panel-head"><h2 id="calendars-title"><b>01</b>calendars in</h2></div>
-        <div class="panel-body">
-          <div data-sources></div>
-          <div class="add">
-            <div>
-              <h3>from google</h3>
-              <div class="field" data-accounts></div>
-            </div>
-            <form class="field" data-add-link>
-              <h3>from a link</h3>
-              <label class="sr" for="link-url">Calendar link</label>
-              <input class="input" id="link-url" name="url" type="text" inputmode="url" autocomplete="off" spellcheck="false" placeholder="https://… or webcal://… (.ics)" required>
-              <div class="row">
-                <label class="sr" for="link-name">Name</label>
-                <input class="input" id="link-name" name="name" type="text" autocomplete="off" placeholder="name (optional)" maxlength="80">
-                <button class="btn" type="submit"><svg aria-hidden="true"><use href="#i-plus"/></svg>add</button>
+    <nav class="tabs" role="tablist" aria-label="Sections">
+      <button class="tab" role="tab" type="button" id="tab-accounts" data-tab="accounts" aria-controls="panel-accounts"><b>01</b>accounts</button>
+      <button class="tab" role="tab" type="button" id="tab-calendar" data-tab="calendar" aria-controls="panel-calendar"><b>02</b>calendar</button>
+      <button class="tab" role="tab" type="button" id="tab-share" data-tab="share" aria-controls="panel-share"><b>03</b>share</button>
+    </nav>
+
+    <main>
+      <section class="tab-panel" id="panel-accounts" role="tabpanel" aria-labelledby="tab-accounts" data-panel="accounts" hidden>
+        <div class="panel">
+          <div class="panel-head"><h2 id="calendars-title"><b>01</b>calendars in</h2></div>
+          <div class="panel-body accounts-body">
+            <div data-sources></div>
+            <div class="add">
+              <div>
+                <h3>from google</h3>
+                <div class="field" data-accounts></div>
               </div>
-            </form>
+              <form class="field" data-add-link>
+                <h3>from a link</h3>
+                <label class="sr" for="link-url">Calendar link</label>
+                <input class="input" id="link-url" name="url" type="text" inputmode="url" autocomplete="off" spellcheck="false" placeholder="https://… or webcal://… (.ics)" required>
+                <div class="row">
+                  <label class="sr" for="link-name">Name</label>
+                  <input class="input" id="link-name" name="name" type="text" autocomplete="off" placeholder="name (optional)" maxlength="80">
+                  <button class="btn" type="submit"><svg aria-hidden="true"><use href="#i-plus"/></svg>add</button>
+                </div>
+              </form>
+            </div>
           </div>
         </div>
       </section>
 
-      <section class="panel" aria-labelledby="links-title">
-        <div class="panel-head"><h2 id="links-title"><b>02</b>share links</h2><button class="btn small" type="button" data-new-link><svg aria-hidden="true"><use href="#i-plus"/></svg>new link</button></div>
-        <div class="panel-body" data-feeds></div>
+      <section class="tab-panel" id="panel-calendar" role="tabpanel" aria-labelledby="tab-calendar" data-panel="calendar" hidden>
+        <div class="panel">
+          <div class="panel-head cal-head">
+            <div class="cal-nav">
+              <button class="icon-btn" type="button" data-cal-prev aria-label="Previous"><svg aria-hidden="true"><use href="#i-left"/></svg></button>
+              <button class="btn small" type="button" data-cal-today>today</button>
+              <button class="icon-btn" type="button" data-cal-next aria-label="Next"><svg aria-hidden="true"><use href="#i-right"/></svg></button>
+              <h2 data-cal-title></h2>
+            </div>
+            <div class="cal-controls">
+              <div class="views" role="group" aria-label="View" data-cal-views>
+                <button type="button" data-view="week">week</button>
+                <button type="button" data-view="month">month</button>
+                <button type="button" data-view="agenda">agenda</button>
+              </div>
+              <label class="sr" for="cal-as">See the calendar as</label>
+              <select class="select" id="cal-as" data-cal-as></select>
+            </div>
+          </div>
+          <div class="panel-body cal-body" data-cal-body></div>
+        </div>
+      </section>
+
+      <section class="tab-panel" id="panel-share" role="tabpanel" aria-labelledby="tab-share" data-panel="share" hidden>
+        <div class="panel">
+          <div class="panel-head"><h2 id="links-title"><b>03</b>share links</h2><button class="btn small" type="button" data-new-link><svg aria-hidden="true"><use href="#i-plus"/></svg>new link</button></div>
+          <div class="panel-body links-body" data-feeds></div>
+        </div>
       </section>
     </main>
 

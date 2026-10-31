@@ -46,7 +46,7 @@ function renameZones(text, renames) {
  * from two accounts) appears once: from a calendar shown in full when there is one,
  * otherwise from the oldest. A calendar shown as busy keeps only when it is busy.
  */
-export async function renderFeed(db, feed, now = Date.now()) {
+export async function renderFeed(db, feed, now = Date.now(), { annotate = false } = {}) {
   const sources = await feedSources(db, feed);
   const cutoff = feed.pastDays ? now - feed.pastDays * DAY : null;
   const zones = new Map();
@@ -88,6 +88,8 @@ export async function renderFeed(db, feed, now = Date.now()) {
       }
       const event = parse(text).children[0];
       if (!event || !prop(event, "DTSTART")) continue;
+      // The app's own calendar view needs to know where each event comes from; public feeds never carry this.
+      if (annotate) event.lines.push(`X-UBERCAL-SOURCE:${source._id}`, `X-UBERCAL-SHOW:${show}`);
       events.push(serialize(event));
       mine.add(doc.uid);
     }

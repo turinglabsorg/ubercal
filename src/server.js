@@ -7,7 +7,8 @@ import { readFile, stat } from "node:fs/promises";
 import http from "node:http";
 import { extname, join, normalize, sep } from "node:path";
 import { ObjectId } from "mongodb";
-import { buildFeed, REFRESH_MINUTES, SHOWS } from "./feeds.js";
+import { occurrences } from "./agenda.js";
+import { buildFeed, REFRESH_MINUTES, renderFeed, SHOWS } from "./feeds.js";
 import { CALENDAR_SCOPES, GoogleError, SIGN_IN_SCOPES } from "./google.js";
 import { normalizeUrl } from "./net.js";
 import { open, seal, signJson, token, verifyJson } from "./secrets.js";
@@ -377,6 +378,20 @@ export function createServer(context, config) {
     const body = ["POST", "PATCH", "PUT"].includes(method) && !empty ? await readJson(req) : {};
     const [area, id, action] = parts;
     if (area === "me" && method === "GET") return send(res, 200, await state(user));
+    if (area === "calendar" && method === "GET") {
+      // The merged calendar as it is, or as one share link shows it, expanded between two instants.
+      const from = Date.parse(url.searchParams.get("from") || "");
+      const to = Date.parse(url.searchParams.get("to") || "");
+      if (!Number.isFinite(from) || !Number.isFinite(to) || to <= from || to - from > 62 * 86400000) throw new HttpError(400, "Ask for up to two months at a time.");
+      let feed = { userId: user._id, name: "Everything", calendars: {}, others: "full", pastDays: 0 };
+      const link = url.searchParams.get("link");
+      if (link) {
+        feed = await db.feeds.findOne({ _id: objectId(link), userId: user._id }, { projection: { ics: 0 } });
+        if (!feed) throw new HttpError(404, "This share link is not yours.");
+      }
+      const { ics } = await renderFeed(db, feed, context.now(), { annotate: true });
+      return send(res, 200, { occurrences: occurrences(ics, from, to), link: link || null });
+    }
     if (area === "account" && method === "DELETE") {
       for (const connection of await db.connections.find({ userId: user._id }).toArray()) {
         try { await google.revoke(open(dataKey, connection.refreshToken)); } catch {}
