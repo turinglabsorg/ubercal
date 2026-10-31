@@ -36,6 +36,7 @@ export async function connect(url, password = "") {
     collections.feeds.createIndex({ userId: 1 }),
     collections.pages.createIndex({ token: 1 }, { unique: true }),
     collections.pages.createIndex({ userId: 1 }),
+    collections.pages.createIndex({ slug: 1 }, { unique: true, partialFilterExpression: { slug: { $type: "string" } } }),
     collections.appointments.createIndex({ userId: 1, start: 1 }),
     collections.appointments.createIndex({ pageId: 1, createdAt: 1 }),
   ]);

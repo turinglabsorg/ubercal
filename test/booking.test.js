@@ -122,4 +122,26 @@ describe("booking pages", () => {
     assert.equal((await api(running, cookie, "PATCH", `/pages/${page.id}`, { active: false })).status, 200);
     assert.equal((await request(running.base, `/book/${token}/info`)).status, 404);
   });
+
+  test("a page can take a short address of its own, once, and words the site uses stay free", async (t) => {
+    const { google, running, cookie, page } = await owner(t);
+    assert.equal((await api(running, cookie, "GET", "/slugs/ada")).data.available, true);
+    assert.equal((await api(running, cookie, "GET", "/slugs/app")).data.available, false);
+    const named = await api(running, cookie, "PATCH", `/pages/${page.id}`, { slug: "Ada" });
+    assert.equal(named.status, 200);
+    assert.equal(named.data.pages[0].url, `${running.origin}/ada`);
+    const short = await request(running.base, "/ada");
+    assert.equal(short.status, 200);
+    assert.match(await short.text(), /book\.js/);
+    assert.equal((await (await request(running.base, "/book/ada/info")).json()).name, "30 minute meeting");
+    assert.equal((await request(running.base, `/book/${new URL(page.url).pathname.split("/").pop()}/info`)).status, 200, "the long address keeps working");
+    for (const bad of ["a", "app", "-ada", "ada_lovelace"]) assert.equal((await api(running, cookie, "PATCH", `/pages/${page.id}`, { slug: bad })).status, 400, bad);
+    const BOB = { sub: "100000000000000000002", email: "bob@example.com", name: "Bob" };
+    google.state.calendars[BOB.sub] = [{ id: "bob@example.com", summary: "Bob", primary: true, accessRole: "owner" }];
+    const bob = await signIn(running, google, BOB);
+    const bobPage = (await api(running, bob, "POST", "/pages", {})).data.pages[0];
+    assert.equal((await api(running, bob, "GET", "/slugs/ada")).data.available, false);
+    assert.equal((await api(running, bob, "PATCH", `/pages/${bobPage.id}`, { slug: "ada" })).status, 409);
+    assert.equal((await request(running.base, "/nobody-here")).status, 404);
+  });
 });

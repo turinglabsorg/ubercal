@@ -8,7 +8,7 @@ import http from "node:http";
 import { extname, join, normalize, sep } from "node:path";
 import { ObjectId } from "mongodb";
 import { occurrences } from "./agenda.js";
-import { AHEAD, BUFFERS, busyBetween, cleanHours, DEFAULT_HOURS, DURATIONS, freeSlots, NOTICE } from "./booking.js";
+import { AHEAD, BUFFERS, busyBetween, cleanHours, DEFAULT_HOURS, DURATIONS, freeSlots, NOTICE, slugProblem } from "./booking.js";
 import { buildFeed, REFRESH_MINUTES, renderFeed, SHOWS } from "./feeds.js";
 import { CALENDAR_SCOPES, canWrite, GoogleError, SIGN_IN_SCOPES, WRITE_SCOPE } from "./google.js";
 import { isZone } from "./tz.js";
@@ -200,7 +200,7 @@ export function createServer(context, config) {
   function pageView(page, connections, upcoming = []) {
     const connection = page.target && connections.find((entry) => String(entry._id) === String(page.target.connectionId));
     return {
-      id: String(page._id), name: page.name, description: page.description || "", url: `${publicUrl}/book/${page.token}`, durations: page.durations, hours: page.hours,
+      id: String(page._id), name: page.name, description: page.description || "", slug: page.slug || "", url: page.slug ? `${publicUrl}/${page.slug}` : `${publicUrl}/book/${page.token}`, durations: page.durations, hours: page.hours,
       timeZone: page.timeZone, noticeMinutes: page.noticeMinutes, daysAhead: page.daysAhead, bufferMinutes: page.bufferMinutes, meet: page.meet !== false, active: page.active !== false,
       target: page.target ? { connectionId: String(page.target.connectionId), calendarId: page.target.calendarId } : null,
       ready: Boolean(connection && canWrite(connection.scope) && connection.status !== "revoked"),
@@ -234,6 +234,17 @@ export function createServer(context, config) {
     }
     if (body.meet !== undefined) settings.meet = Boolean(body.meet);
     if (body.active !== undefined) settings.active = Boolean(body.active);
+    if (body.slug !== undefined) {
+      const slug = String(body.slug || "").trim().toLowerCase();
+      if (!slug) settings.slug = null;
+      else {
+        const problem = slugProblem(slug);
+        if (problem) throw new HttpError(400, problem);
+        const taken = await db.pages.findOne({ slug, userId: { $ne: user._id } }) || await db.pages.findOne({ slug, userId: user._id, _id: { $ne: body._pageId } });
+        if (taken) throw new HttpError(409, "Someone already uses this address: choose another.");
+        settings.slug = slug;
+      }
+    }
     if (body.target !== undefined) {
       if (body.target === null) settings.target = null;
       else {
@@ -471,8 +482,8 @@ export function createServer(context, config) {
     return entry.busy;
   }
 
-  async function publicPage(pageToken) {
-    const page = await db.pages.findOne({ token: pageToken, active: { $ne: false } });
+  async function publicPage(address) {
+    const page = await db.pages.findOne({ $or: [{ token: address }, { slug: String(address).toLowerCase() }], active: { $ne: false } });
     if (!page) throw new HttpError(404, "There is no booking page at this link.");
     return page;
   }
@@ -653,6 +664,12 @@ export function createServer(context, config) {
         return send(res, 200, await state(user));
       }
     }
+    if (area === "slugs" && id && method === "GET") {
+      const slug = String(id).toLowerCase();
+      const problem = slugProblem(slug);
+      const taken = !problem && await db.pages.findOne({ slug, userId: { $ne: user._id } });
+      return send(res, 200, { slug, available: !problem && !taken, problem: problem || (taken ? "Someone already uses this address." : "") });
+    }
     if (area === "pages") {
       if (!id && method === "POST") {
         await createPage(user, body);
@@ -661,7 +678,12 @@ export function createServer(context, config) {
       const page = id ? await db.pages.findOne({ _id: objectId(id), userId: user._id }) : null;
       if (id && !page) throw new HttpError(404, "This booking page is not yours.");
       if (page && !action && method === "PATCH") {
-        await db.pages.updateOne({ _id: page._id }, { $set: await pageSettings(user, body) });
+        try {
+          await db.pages.updateOne({ _id: page._id }, { $set: await pageSettings(user, { ...body, _pageId: page._id }) });
+        } catch (error) {
+          if (error?.code === 11000) throw new HttpError(409, "Someone already uses this address: choose another.");
+          throw error;
+        }
         context.busyCache?.delete(String(user._id));
         return send(res, 200, await state(user));
       }
@@ -705,7 +727,7 @@ export function createServer(context, config) {
     if (path === "/healthz") return send(res, 200, "ok");
     const feedMatch = /^\/feed\/([A-Za-z0-9_-]{16,64})(?:\.ics)?$/.exec(path);
     if (feedMatch && (req.method === "GET" || req.method === "HEAD")) return serveFeed(req, res, feedMatch[1]);
-    const bookMatch = /^\/book\/([A-Za-z0-9_-]{16,64})(?:\/(info|slots|reserve))?$/.exec(path);
+    const bookMatch = /^\/book\/([A-Za-z0-9_-]{3,64})(?:\/(info|slots|reserve))?$/.exec(path);
     if (bookMatch && !bookMatch[2] && (req.method === "GET" || req.method === "HEAD")) return serveFile(req, res, "book.html", { page: true });
     if (bookMatch && bookMatch[2]) return bookingRoute(req, res, url, bookMatch[1], bookMatch[2]);
     if (path === "/auth/google" && req.method === "GET") return startGoogle(res, { purpose: "signin", next: url.searchParams.get("next") || "/app" });
@@ -736,6 +758,9 @@ export function createServer(context, config) {
       return serveFile(req, res, "app.html", { page: true });
     }
     if (/^\/[a-z0-9-]+\.(?:svg|png|ico|txt|webmanifest)$/.test(path)) return serveFile(req, res, path.slice(1));
+    // A booking page's short address.
+    const short = /^\/([a-z0-9][a-z0-9-]{1,38}[a-z0-9])\/?$/.exec(path.toLowerCase());
+    if (short && await db.pages.findOne({ slug: short[1], active: { $ne: false } }, { projection: { _id: 1 } })) return serveFile(req, res, "book.html", { page: true });
     if (path.startsWith("/static/")) return serveFile(req, res, path.slice(1));
     throw new HttpError(404, "Not found.");
   }

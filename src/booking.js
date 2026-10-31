@@ -13,6 +13,15 @@ export const NOTICE = [0, 60, 120, 240, 720, 1440, 2880];
 export const AHEAD = [7, 14, 30, 60, 90];
 export const BUFFERS = [0, 5, 10, 15, 30];
 const TIME = /^([01]\d|2[0-3]):([0-5]\d)$/;
+// A booking page's own short address: ubercal.fluxkit.dev/<slug>. Words the site uses for itself are not for taking.
+export const SLUG = /^[a-z0-9](?:[a-z0-9-]{1,38}[a-z0-9])$/;
+export const RESERVED = new Set(["app", "api", "auth", "book", "feed", "static", "healthz", "favicon", "robots", "sitemap", "index", "privacy", "terms", "login", "logout", "signin", "signup", "admin", "help", "about", "settings", "account", "accounts", "calendar", "share", "fluxkit", "ubercal", "google", "www", "mail", "support"]);
+
+export function slugProblem(slug) {
+  if (!SLUG.test(slug)) return "Use 3 to 40 lowercase letters, numbers and dashes, starting and ending with a letter or number.";
+  if (RESERVED.has(slug)) return "ubercal uses this word for itself: choose another.";
+  return "";
+}
 
 export const DEFAULT_HOURS = Object.fromEntries([1, 2, 3, 4, 5].map((day) => [String(day), [["09:00", "17:00"]]]));
 

@@ -682,6 +682,7 @@
       return el("article", { class: `link page${page.active ? "" : " paused"}` },
         el("div", { class: "link-head" }, name, open),
         el("div", { class: "url" }, el("code", { text: page.url.replace(/^https?:\/\//, "") }), copyButton, el("a", { class: "btn small", href: page.url, target: "_blank", rel: "noopener", text: "open" })),
+        el("h3", { class: "page-label", text: "short address" }), addressEditor(page),
         pageTarget(page),
         el("h3", { class: "page-label", text: "how long" }), durations,
         el("h3", { class: "page-label", text: "when" }), hoursEditor(page),
@@ -690,6 +691,34 @@
         page.upcoming.length ? el("ul", { class: "upcoming" }, page.upcoming.map((entry) => el("li", {}, el("b", { text: when(entry) }), el("span", { text: `${entry.name} · ${entry.email}` })))) : el("p", { class: "empty", text: "No bookings yet." }),
         el("div", { class: "link-foot" }, el("span", { class: "link-meta", text: page.ready ? "taking bookings" : "not taking bookings yet" }), el("div", { class: "row" }, rotate, remove)));
     }));
+  }
+
+  /** The page's own short address: typed, checked while typing, saved on demand. */
+  function addressEditor(page) {
+    const host = location.host;
+    const input = el("input", { class: "slug-input", value: page.slug, placeholder: "your-name", maxlength: "40", spellcheck: "false", autocomplete: "off", "aria-label": "Short address" });
+    const status = el("span", { class: "slug-status", text: page.slug ? "this is the page's address" : "pick a short address" });
+    const save = el("button", { class: "btn small", type: "button", disabled: true }, el("span", { text: "save" }));
+    let timer = null;
+    input.addEventListener("input", () => {
+      const slug = input.value.trim().toLowerCase();
+      save.disabled = true;
+      clearTimeout(timer);
+      if (!slug || slug === page.slug) { status.textContent = slug ? "this is the page's address" : "pick a short address"; status.className = "slug-status"; save.disabled = !page.slug || slug === page.slug; return; }
+      status.textContent = "checking…";
+      status.className = "slug-status";
+      timer = setTimeout(async () => {
+        try {
+          const answer = await call("GET", `/slugs/${encodeURIComponent(slug)}`);
+          if (input.value.trim().toLowerCase() !== slug) return;
+          status.textContent = answer.available ? "free: it's yours if you save" : answer.problem;
+          status.className = `slug-status ${answer.available ? "ok" : "bad"}`;
+          save.disabled = !answer.available;
+        } catch (error) { status.textContent = error.message; status.className = "slug-status bad"; }
+      }, 300);
+    });
+    save.addEventListener("click", () => patchPage(page, { slug: input.value.trim().toLowerCase() }));
+    return el("div", { class: "slug" }, el("label", { class: "slug-field" }, el("span", { class: "slug-host", text: `${host}/` }), input), save, status);
   }
 
   async function newPage() {

@@ -1,5 +1,6 @@
 (() => {
-  const token = location.pathname.split("/").filter(Boolean)[1];
+  const parts = location.pathname.split("/").filter(Boolean);
+  const token = parts[0] === "book" ? parts[1] : parts[0];
   const root = document.querySelector("[data-book]");
   const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
   const view = { info: null, duration: 0, month: null, slots: new Map(), day: "", start: "", loading: false, done: null };
