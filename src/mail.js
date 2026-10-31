@@ -17,7 +17,7 @@ const GUEST = {
     accept: "One more step: accept the Google Calendar invitation we just sent you (answer “Yes”), so the meeting is confirmed in your calendar too.",
     pending: "You have not accepted the Google Calendar invitation yet: answer “Yes” to confirm the meeting.",
     what: "What", when: "When", with: "With", notes: "Your notes", change: "To change anything, reply to this email.", join: "Join with Google Meet",
-    footer: "Sent by ubercal, an open-source fluxkit tool.",
+    footer: "Sent by {ubercal}, an open-source {fluxkit} tool by {meaningtech}.",
   },
   it: {
     badge: { confirmed: "prenotato", day: "domani", hour: "tra un'ora" },
@@ -26,7 +26,7 @@ const GUEST = {
     accept: "Un ultimo passo: accetta l'invito di Google Calendar che ti abbiamo appena mandato (rispondi “Sì”), così l'incontro è confermato anche nel tuo calendario.",
     pending: "Non hai ancora accettato l'invito di Google Calendar: rispondi “Sì” per confermare l'incontro.",
     what: "Cosa", when: "Quando", with: "Con", notes: "Le tue note", change: "Per cambiare qualcosa, rispondi a questa email.", join: "Entra con Google Meet",
-    footer: "Inviato da ubercal, uno strumento open source di fluxkit.",
+    footer: "Inviato da {ubercal}, uno strumento open source {fluxkit} di {meaningtech}.",
   },
   es: {
     badge: { confirmed: "reservado", day: "mañana", hour: "en una hora" },
@@ -35,7 +35,7 @@ const GUEST = {
     accept: "Un último paso: acepta la invitación de Google Calendar que te acabamos de enviar (responde “Sí”), para que la reunión quede confirmada también en tu calendario.",
     pending: "Todavía no has aceptado la invitación de Google Calendar: responde “Sí” para confirmar la reunión.",
     what: "Qué", when: "Cuándo", with: "Con", notes: "Tus notas", change: "Para cambiar algo, responde a este correo.", join: "Unirse con Google Meet",
-    footer: "Enviado por ubercal, una herramienta de código abierto de fluxkit.",
+    footer: "Enviado por {ubercal}, una herramienta de código abierto {fluxkit} de {meaningtech}.",
   },
   fr: {
     badge: { confirmed: "réservé", day: "demain", hour: "dans une heure" },
@@ -44,7 +44,7 @@ const GUEST = {
     accept: "Dernière étape : acceptez l'invitation Google Agenda que nous venons de vous envoyer (répondez « Oui »), pour que le rendez-vous soit confirmé dans votre agenda aussi.",
     pending: "Vous n'avez pas encore accepté l'invitation Google Agenda : répondez « Oui » pour confirmer le rendez-vous.",
     what: "Quoi", when: "Quand", with: "Avec", notes: "Vos notes", change: "Pour modifier quoi que ce soit, répondez à cet e-mail.", join: "Rejoindre avec Google Meet",
-    footer: "Envoyé par ubercal, un outil open source de fluxkit.",
+    footer: "Envoyé par {ubercal}, un outil open source {fluxkit} de {meaningtech}.",
   },
 };
 
@@ -92,6 +92,11 @@ export function when(start, end, timeZone, language = "en") {
   return `${day}, ${time(start)}–${time(end)} (${zone.replace(/_/g, " ")})`;
 }
 
+// The footer names who makes ubercal: its source on GitHub, the kit, and meaningtech's site.
+const FOOTER_LINKS = { ubercal: "https://github.com/turinglabsorg/ubercal", fluxkit: "https://fluxkit.dev", meaningtech: "https://meaningtech.io" };
+const footerHtml = (footer) => escape(footer).replace(/\{(ubercal|fluxkit|meaningtech)\}/g, (_, name) => `<a href="${FOOTER_LINKS[name]}" style="color:#7d7887">${name}</a>`);
+const footerText = (footer) => footer.replace(/\{(ubercal|fluxkit|meaningtech)\}/g, (_, name) => (name === "fluxkit" ? name : `${name} (${FOOTER_LINKS[name]})`));
+
 function layout({ badge, badgeColor = "#19c27a", title, callout, lines, button, footer }) {
   const rows = lines.map(([label, value]) => `<tr><td style="padding:6px 12px 6px 0;color:#7d7887;font-size:13px;font-weight:700;white-space:nowrap;vertical-align:top">${escape(label)}</td><td style="padding:6px 0;color:#121117;font-size:15px">${escape(value).replace(/\n/g, "<br>")}</td></tr>`).join("");
   // The site's look: 2px ink outlines and hard ink shadows. A client that drops box-shadow or transform keeps the rest.
@@ -108,12 +113,12 @@ function layout({ badge, badgeColor = "#19c27a", title, callout, lines, button, 
 <h1 style="margin:14px 0 16px;color:#121117;font-size:22px;line-height:1.25">${escape(title)}</h1>
 ${note}<table role="presentation" cellspacing="0" cellpadding="0">${rows}</table>${action}
 </td></tr></table>
-<p style="margin:22px 0 0;color:#7d7887;font-size:12px">${escape(footer)} <a href="https://ubercal.fluxkit.dev" style="color:#7d7887">ubercal.fluxkit.dev</a></p>
+<p style="margin:22px 0 0;color:#7d7887;font-size:12px">${footerHtml(footer)}</p>
 </td></tr></table></body></html>`;
 }
 
 function plain({ title, callout, lines, button, footer }) {
-  return [title, "", ...(callout ? [callout, ""] : []), ...lines.map(([label, value]) => `${label}: ${value}`), ...(button ? ["", `${button.label}: ${button.href}`] : []), "", `${footer} https://ubercal.fluxkit.dev`].join("\n");
+  return [title, "", ...(callout ? [callout, ""] : []), ...lines.map(([label, value]) => `${label}: ${value}`), ...(button ? ["", `${button.label}: ${button.href}`] : []), "", footerText(footer)].join("\n");
 }
 
 const message = (parts) => ({ html: layout(parts), text: plain(parts) });
@@ -135,7 +140,7 @@ export function bookingEmail(kind, { appointment, page, ownerName, ownerEmail })
         title: declined ? `${appointment.name} declined ${page.name}` : `${appointment.name} booked ${page.name}`,
         callout: declined ? "The time is free again on your booking page." : "",
         button: !declined && appointment.meet ? { href: appointment.meet, label: "Join with Google Meet" } : null,
-        footer: "Sent by ubercal, an open-source fluxkit tool.",
+        footer: "Sent by {ubercal}, an open-source {fluxkit} tool by {meaningtech}.",
         lines: [["When", time], ["Who", `${appointment.name} <${appointment.email}>`], ...(appointment.notes ? [["Notes", appointment.notes]] : [])],
       }),
     };
