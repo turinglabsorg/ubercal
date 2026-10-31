@@ -338,4 +338,7 @@ test("only one process runs the pass at a time", async (t) => {
   assert.equal(await second.runOnce(), false);
   running.clock.now += 5 * 60000;
   assert.equal(await second.runOnce(), true);
+  await second.stop();
+  const third = new Syncer(running.app.context);
+  assert.equal(await third.runOnce(), true);
 });

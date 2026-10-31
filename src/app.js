@@ -46,7 +46,7 @@ export async function createApp(settings, { now = () => Date.now(), log = (...pa
   return {
     context, server, syncer, db,
     async close() {
-      syncer.stop();
+      await syncer.stop();
       await new Promise((resolve) => server.close(() => resolve()));
       await db.client.close();
     },

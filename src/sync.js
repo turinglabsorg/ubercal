@@ -244,7 +244,12 @@ export class Syncer {
     this.timer.unref?.();
   }
 
-  stop() {
+  /** Stops the loop and hands the lease back, so a process started next (a deploy) runs its pass at once. */
+  async stop() {
     clearTimeout(this.timer);
+    try {
+      await this.running;
+      await this.context.db.leases.updateOne({ _id: "sync", owner: this.owner }, { $set: { until: new Date(0) } });
+    } catch {}
   }
 }
