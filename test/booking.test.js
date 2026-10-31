@@ -86,6 +86,9 @@ describe("booking pages", () => {
     assert.ok(!(await slots(running, token)).slots.includes(rome(2, 10)));
     const me = (await api(running, cookie, "GET", "/me")).data;
     assert.deepEqual(me.pages[0].upcoming.map((entry) => [entry.name, entry.email]), [["Bob Rossi", "bob@example.com"]]);
+    running.clock.now = Date.UTC(2026, 11, 3);
+    await running.app.syncer.runOnce();
+    assert.equal(await running.app.db.appointments.countDocuments({}), 0, "guest data goes 30 days after the meeting");
   });
 
   test("a booking needs a real name, a working email and a time from the list", async (t) => {

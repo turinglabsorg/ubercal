@@ -228,6 +228,8 @@ export class Syncer {
       });
       const ids = sources.filter((source) => changedUsers.has(String(source.userId))).map((source) => source.userId);
       await rebuildFeeds(this.context, ids);
+      // A guest's name, email and notes stay only while they are useful: until 30 days after the meeting.
+      await db.appointments.deleteMany({ end: { $lt: new Date(now() - 30 * DAY) } });
       await db.leases.updateOne({ _id: "sync", owner: this.owner }, { $set: { finishedAt: new Date(now()), until: new Date(now() + this.intervalMs - 30000), sources: sources.length } });
       return true;
     })().finally(() => { this.running = null; });
