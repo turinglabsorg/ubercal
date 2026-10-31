@@ -8,9 +8,12 @@
   <meta property="og:title" content="ubercal · every calendar, one link">
   <meta property="og:description" content="Merge your Google calendars and any .ics link into share links that refresh every ten minutes. Each link shows every calendar in full, as busy time, or not at all.">
   <meta property="og:url" content="https://ubercal.fluxkit.dev/">
-  <meta name="theme-color" content="#000000">
+  <meta name="theme-color" content="#fffaf0" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#121117" media="(prefers-color-scheme: dark)">
+  <script src="/static/theme.js"></script>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-  <link rel="preload" href="/static/fonts/martian-mono.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="/static/fonts/unbounded.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="/static/fonts/figtree.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="/static/site.css">
 </head>
 <body>
@@ -18,6 +21,8 @@
     <symbol id="i-mark" viewBox="0 0 30 34"><g fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><line x1="15" y1="2" x2="15" y2="16"/><line x1="15" y1="16" x2="3" y2="31"/><line x1="15" y1="16" x2="27" y2="31"/></g></symbol>
     <symbol id="i-g" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></symbol>
     <symbol id="i-arrow" viewBox="0 0 16 16"><path d="M4 12 12 4M6 4h6v6" fill="none" stroke="currentColor" stroke-width="1.5"/></symbol>
+    <symbol id="i-sun" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M5.3 18.7l1.6-1.6M17.1 6.9l1.6-1.6"/></g></symbol>
+    <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/></symbol>
   </svg>
 
   <div class="wrap">
@@ -27,6 +32,7 @@
         fluxkit <span>/</span> <strong>ubercal</strong>
       </a>
       <nav aria-label="Account">
+        <button class="theme" type="button" data-theme-toggle aria-label="Switch between light and dark"><svg class="sun" aria-hidden="true"><use href="#i-sun"/></svg><svg class="moon" aria-hidden="true"><use href="#i-moon"/></svg></button>
         <a href="#how">how it works</a>
         <a class="btn small" href="/auth/google?next=/app" data-signin><svg class="google-g" aria-hidden="true"><use href="#i-g"/></svg><span data-signin-label>Sign in</span></a>
       </nav>
@@ -36,8 +42,8 @@
       <section class="hero">
         <div class="hero-copy">
           <p class="prompt">ubercal</p>
-          <h1 class="wordmark">ubercal</h1>
-          <p class="tagline">Every calendar. One link.</p>
+          <h1 class="wordmark">uber<span>cal</span></h1>
+          <p class="tagline">Every calendar. <mark>One link.</mark></p>
           <p class="lede">Connect your Google calendars, paste any .ics link, and ubercal keeps them merged into share links that refresh every ten minutes. Each link decides, calendar by calendar, what it shows: everything, only busy time, or nothing.</p>
           <div class="actions">
             <a class="btn primary" href="/auth/google?next=/app" data-signin><svg class="google-g" aria-hidden="true"><use href="#i-g"/></svg><span data-signin-label>Sign in with Google</span></a>
@@ -48,81 +54,86 @@
         </div>
 
         <figure class="merge" aria-label="Three calendars, Work, Home and Team rota, merge into one share link that shows Work in full, Home as busy time and leaves the rota out.">
-          <svg viewBox="0 0 520 610" role="img" aria-hidden="true">
+          <svg viewBox="0 0 520 620" role="img" aria-hidden="true">
             <defs>
-              <pattern id="hatch" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="7" height="7" fill="#0c0d10"/><line x1="0" y1="0" x2="0" y2="7" stroke="#8a8a8a" stroke-opacity=".55" stroke-width="2.2"/></pattern>
+              <pattern id="hatch" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect class="m-hatch-ground" width="8" height="8"/><line class="m-hatch-line" x1="0" y1="0" x2="0" y2="8" stroke-width="2.4"/></pattern>
             </defs>
-            <g font-size="11" fill="#6b6b6b">
-              <g transform="translate(6 0)">
-                <rect width="150" height="118" fill="#07080a" stroke="#1d1f22"/>
-                <circle cx="14" cy="17" r="4" fill="#7aa2ff"/><text x="24" y="21" fill="#ececec" font-weight="600">Work</text><text x="146" y="21" text-anchor="end">google</text>
-                <g transform="translate(12 34)">
-                  <rect x="0" y="6" width="22" height="22" fill="#7aa2ff"/><rect x="26" y="30" width="22" height="16" fill="#7aa2ff"/><rect x="52" y="0" width="22" height="34" fill="#7aa2ff"/><rect x="78" y="40" width="22" height="20" fill="#7aa2ff"/><rect x="104" y="14" width="22" height="18" fill="#7aa2ff"/>
+            <g class="m-cards" font-size="12">
+              <g>
+                <rect class="m-shadow" x="11" y="5" width="150" height="118" rx="14"/>
+                <rect class="m-card" x="6" y="0" width="150" height="118" rx="14"/>
+                <rect class="m-block m-blue" x="18" y="12" width="14" height="14" rx="4"/><text class="m-ink t-display" x="40" y="24" font-size="12">Work</text><text class="m-meta" x="146" y="24" text-anchor="end" font-size="10.5">google</text>
+                <g transform="translate(18 40)">
+                  <rect class="m-block m-blue" x="0" y="6" width="20" height="22" rx="4"/><rect class="m-block m-blue" x="26" y="30" width="20" height="16" rx="4"/><rect class="m-block m-blue" x="52" y="0" width="20" height="34" rx="4"/><rect class="m-block m-blue" x="78" y="40" width="20" height="20" rx="4"/><rect class="m-block m-blue" x="104" y="14" width="20" height="18" rx="4"/>
                 </g>
               </g>
-              <g transform="translate(185 0)">
-                <rect width="150" height="118" fill="#07080a" stroke="#1d1f22"/>
-                <circle cx="14" cy="17" r="4" fill="#2bd9a6"/><text x="24" y="21" fill="#ececec" font-weight="600">Home</text><text x="146" y="21" text-anchor="end">google</text>
-                <g transform="translate(12 34)">
-                  <rect x="0" y="44" width="22" height="18" fill="#2bd9a6"/><rect x="52" y="22" width="22" height="22" fill="#2bd9a6"/><rect x="104" y="0" width="22" height="26" fill="#2bd9a6"/>
+              <g>
+                <rect class="m-shadow" x="190" y="5" width="150" height="118" rx="14"/>
+                <rect class="m-card" x="185" y="0" width="150" height="118" rx="14"/>
+                <rect class="m-block m-green" x="197" y="12" width="14" height="14" rx="4"/><text class="m-ink t-display" x="219" y="24" font-size="12">Home</text><text class="m-meta" x="325" y="24" text-anchor="end" font-size="10.5">google</text>
+                <g transform="translate(197 40)">
+                  <rect class="m-block m-green" x="0" y="44" width="20" height="18" rx="4"/><rect class="m-block m-green" x="52" y="22" width="20" height="22" rx="4"/><rect class="m-block m-green" x="104" y="0" width="20" height="26" rx="4"/>
                 </g>
               </g>
-              <g transform="translate(364 0)">
-                <rect width="150" height="118" fill="#07080a" stroke="#1d1f22"/>
-                <circle cx="14" cy="17" r="4" fill="#ffb21e"/><text x="24" y="21" fill="#ececec" font-weight="600">Rota</text><text x="146" y="21" text-anchor="end">.ics</text>
-                <g transform="translate(12 34)">
-                  <rect x="26" y="0" width="22" height="62" fill="#ffb21e"/><rect x="104" y="0" width="22" height="62" fill="#ffb21e"/>
+              <g>
+                <rect class="m-shadow" x="369" y="5" width="150" height="118" rx="14"/>
+                <rect class="m-card" x="364" y="0" width="150" height="118" rx="14"/>
+                <rect class="m-block m-pink" x="376" y="12" width="14" height="14" rx="4"/><text class="m-ink t-display" x="398" y="24" font-size="12">Rota</text><text class="m-meta" x="504" y="24" text-anchor="end" font-size="10.5">.ics</text>
+                <g transform="translate(376 40)">
+                  <rect class="m-block m-pink" x="26" y="0" width="20" height="62" rx="4"/><rect class="m-block m-pink" x="104" y="0" width="20" height="62" rx="4"/>
                 </g>
               </g>
             </g>
 
-            <path class="conduit" d="M81 126 C81 220 260 214 260 300"/>
-            <path class="conduit" d="M260 126 L260 300"/>
-            <path class="conduit" d="M439 126 C439 220 260 214 260 300" stroke-dasharray="3 6"/>
-            <path class="conduit" d="M260 300 L260 366"/>
-            <path class="pulse a" stroke="#7aa2ff" pathLength="400" d="M81 126 C81 220 260 214 260 300"/>
-            <path class="pulse b" stroke="#2bd9a6" pathLength="400" d="M260 126 L260 300"/>
-            <path class="pulse out" pathLength="300" d="M260 300 L260 366"/>
-            <circle class="junction" cx="260" cy="300" r="6.5"/>
-            <text x="449" y="214" font-size="10" fill="#6b6b6b">off</text>
-            <text x="272" y="214" font-size="10" fill="#6b6b6b">busy</text>
-            <text x="118" y="214" font-size="10" fill="#6b6b6b">full</text>
+            <path class="conduit" d="M81 128 C81 222 260 216 260 304"/>
+            <path class="conduit" d="M260 128 L260 304"/>
+            <path class="conduit off" d="M439 128 C439 222 260 216 260 304"/>
+            <path class="conduit" d="M260 304 L260 372"/>
+            <path class="pulse a" pathLength="400" d="M81 128 C81 222 260 216 260 304"/>
+            <path class="pulse b" pathLength="400" d="M260 128 L260 304"/>
+            <path class="pulse out" pathLength="300" d="M260 304 L260 372"/>
+            <g font-size="11">
+              <rect class="m-chip" x="104" y="200" width="44" height="22" rx="11"/><text class="m-ink" x="126" y="215" text-anchor="middle">full</text>
+              <rect class="m-chip" x="268" y="200" width="50" height="22" rx="11"/><text class="m-ink" x="293" y="215" text-anchor="middle">busy</text>
+              <rect class="m-chip" x="420" y="200" width="40" height="22" rx="11"/><text class="m-meta" x="440" y="215" text-anchor="middle">off</text>
+            </g>
+            <circle class="junction" cx="260" cy="304" r="12"/>
 
-            <g transform="translate(36 366)">
-              <rect width="448" height="236" fill="#07080a" stroke="#34373c"/>
-              <text x="16" y="26" font-size="10.5" fill="#6b6b6b" letter-spacing="1.5">SHARE LINK</text>
-              <text x="16" y="46" font-size="14" fill="#ececec" font-weight="700">For the team</text>
-              <text x="432" y="26" font-size="10.5" fill="#6b6b6b" text-anchor="end" letter-spacing="1.5">NEXT READ</text>
-              <text x="432" y="50" font-size="20" fill="#ffb21e" text-anchor="end" class="seg" data-countdown>10:00</text>
-              <g transform="translate(16 64)" font-size="9.5" fill="#6b6b6b">
+            <g transform="translate(36 372)"><g class="m-out">
+              <rect class="m-shadow" x="7" y="7" width="448" height="238" rx="16"/>
+              <rect class="m-card" width="448" height="238" rx="16"/>
+              <text class="m-meta" x="18" y="28" font-size="10.5" letter-spacing="1.2">SHARE LINK</text>
+              <text class="m-ink t-display" x="18" y="50" font-size="15">For the team</text>
+              <rect class="m-block m-yellow" x="326" y="14" width="106" height="40" rx="12"/>
+              <text class="m-on-pop t-display" x="379" y="42" font-size="19" text-anchor="middle" data-countdown>10:00</text>
+              <g transform="translate(18 74)" font-size="10" class="m-meta">
                 <text x="0" y="0">MON</text><text x="60" y="0">TUE</text><text x="120" y="0">WED</text><text x="180" y="0">THU</text><text x="240" y="0">FRI</text><text x="300" y="0">SAT</text><text x="360" y="0">SUN</text>
                 <g transform="translate(0 8)">
-                  <line x1="0" y1="0" x2="416" y2="0" stroke="#1d1f22"/>
-                  <rect x="0" y="10" width="52" height="30" fill="#7aa2ff"/>
-                  <rect x="0" y="62" width="52" height="24" fill="url(#hatch)" stroke="#34373c"/>
-                  <rect x="60" y="44" width="52" height="22" fill="#7aa2ff"/>
-                  <rect x="120" y="4" width="52" height="46" fill="#7aa2ff"/>
-                  <rect x="120" y="54" width="52" height="30" fill="url(#hatch)" stroke="#34373c"/>
-                  <rect x="180" y="58" width="52" height="28" fill="#7aa2ff"/>
-                  <rect x="240" y="18" width="52" height="24" fill="#7aa2ff"/>
-                  <rect x="240" y="4" width="52" height="12" fill="url(#hatch)" stroke="#34373c"/>
-                  <rect x="300" y="30" width="52" height="40" fill="url(#hatch)" stroke="#34373c"/>
+                  <rect class="m-block m-blue" x="0" y="8" width="52" height="30" rx="5"/>
+                  <rect class="m-block" fill="url(#hatch)" x="0" y="60" width="52" height="24" rx="5"/>
+                  <rect class="m-block m-blue" x="60" y="42" width="52" height="22" rx="5"/>
+                  <rect class="m-block m-blue" x="120" y="2" width="52" height="46" rx="5"/>
+                  <rect class="m-block" fill="url(#hatch)" x="120" y="54" width="52" height="30" rx="5"/>
+                  <rect class="m-block m-blue" x="180" y="56" width="52" height="28" rx="5"/>
+                  <rect class="m-block m-blue" x="240" y="20" width="52" height="24" rx="5"/>
+                  <rect class="m-block" fill="url(#hatch)" x="300" y="28" width="52" height="40" rx="5"/>
                 </g>
               </g>
-              <g transform="translate(16 182)">
-                <rect width="416" height="38" fill="#0c0d10" stroke="#34373c"/>
-                <text x="12" y="24" font-size="11.5" fill="#6fe3ff">ubercal.fluxkit.dev/feed/k3Qx…7Zp.ics</text>
-                <text x="404" y="24" font-size="10.5" fill="#a8a8a8" text-anchor="end">copy</text>
+              <g transform="translate(18 182)">
+                <rect class="m-soft" width="412" height="40" rx="12"/>
+                <text class="m-link" x="14" y="25" font-size="12">ubercal.fluxkit.dev/feed/k3Qx…7Zp.ics</text>
+                <rect class="m-block m-yellow" x="344" y="7" width="60" height="26" rx="9"/>
+                <text class="m-on-pop" x="374" y="24.5" font-size="11.5" text-anchor="middle">copy</text>
               </g>
-            </g>
+            </g></g>
           </svg>
         </figure>
       </section>
 
       <section class="readouts" aria-label="ubercal in numbers">
-        <div class="readout"><p class="plate">sync · min</p><span class="digits amber" data-ghost="88" data-count="10">10</span></div>
-        <div class="readout"><p class="plate">calendars</p><span class="digits red" data-ghost="88" data-count="25">25</span></div>
-        <div class="readout"><p class="plate">trackers</p><span class="digits green" data-ghost="88">00</span></div>
+        <div class="readout"><p class="plate">sync · min</p><span class="digits" data-count="10">10</span></div>
+        <div class="readout"><p class="plate">calendars</p><span class="digits" data-count="25">25</span></div>
+        <div class="readout"><p class="plate">trackers</p><span class="digits">00</span></div>
       </section>
 
       <section class="section" id="how">

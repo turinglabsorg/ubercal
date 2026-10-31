@@ -1,63 +1,78 @@
 # ubercal design
 
-ubercal is a Fluxkit tool, so it looks like one: the flux capacitor console of fluxkit.dev (black ground, Martian Mono everywhere, a white mark that carries light, segment-display readouts). Its own idea is the merge. The Fluxkit mark is three conduits meeting at one point; on ubercal the conduits are calendars and the point is where they become one link.
+**Pop.** Fresh, young, loud colors on white. ubercal looks like a sticker sheet of calendars: chunky rounded type, saturated color blocks, crisp black outlines and hard offset shadows, with a dotted planner grid under everything. It is a Fluxkit tool by name only: it does not borrow Fluxkit's console look.
+
+The idea is the merge: calendars run down their conduits into one point and come out as one share link. The three ways a link shows a calendar are the signature and look the same everywhere.
 
 Two pages share one stylesheet, `web/static/site.css`: the public landing (`web/index.html`) and the signed-in app (`web/app.html` + `web/static/app.js`). Plain HTML, CSS and JavaScript, no build, no framework, nothing loaded from another origin except Google profile pictures.
 
-## Color
+## Themes
+
+White first. Dark follows the system (`prefers-color-scheme`) unless the person picks one with the sun/moon switch in the bar, which is remembered in `localStorage` (`ubercal.theme`) and set as `data-theme` on `<html>` before the page paints.
+
+| Token | Light | Dark | Use |
+| --- | --- | --- | --- |
+| `--ground` | `#fffaf0` | `#121117` | Page, with a dot grid in `--dots` |
+| `--dots` | `#e9e1cf` | `#26242e` | The planner dots |
+| `--surface` | `#ffffff` | `#1c1b23` | Cards, panels, inputs |
+| `--surface-2` | `#fff4dc` | `#25232d` | Rows inside a card, the picker |
+| `--ink` | `#121117` | `#f7f3ea` | Text, outlines, hard shadows |
+| `--ink-2` | `#4a4752` | `#c9c4d6` | Sentences |
+| `--ink-3` | `#7d7887` | `#8f899d` | Meta, placeholders |
+| `--line` | `#121117` | `#f7f3ea` | Every outline (2px) |
+| `--shadow` | `#121117` | `#f7f3ea` | Hard offset shadows |
+
+The pop colors are the same in both themes:
 
 | Token | Value | Use |
 | --- | --- | --- |
-| `--void` | `#000` | Page ground |
-| `--panel` | `#07080a` | Cells, cards, the app's panels |
-| `--panel-2` | `#0c0d10` | Inputs, rows inside a card |
-| `--ink` | `#ececec` | Names, headings |
-| `--ink-2` | `#a8a8a8` | Sentences |
-| `--ink-3` | `#6b6b6b` | Labels, meta, placeholders |
-| `--rule` | `#1d1f22` | Dividers, borders |
-| `--rule-hi` | `#34373c` | Hover border, buttons |
-| `--flux` | `#fff` | The mark, primary buttons, focus |
-| `--tc-red` | `#ff3b2f` | Readouts; errors |
-| `--tc-green` | `#2bff88` | Readouts; `ok`, copied |
-| `--tc-amber` | `#ffb21e` | Readouts; the sync countdown; "syncing" |
-| `--uber` | `#6fe3ff` | ubercal's own accent: the junction of the mark, the live link, the selected state of a calendar's switch |
+| `--blue` | `#3a5bff` | Primary actions, links, the brand block of the wordmark |
+| `--yellow` | `#ffd23f` | Highlights, the junction, the countdown block, Sign in |
+| `--pink` | `#ff5ca8` | Second readout, "how it works" accents, warnings that are not errors |
+| `--green` | `#19c27a` | Third readout, `ok`, copied |
+| `--orange` | `#ff7a2f` | Calendar color |
+| `--lilac` | `#a98bff` | Calendar color |
+| `--red` | `#ff3b3b` | Errors and destructive hover only |
 
-Calendar colors are data, not decoration: a Google calendar keeps the color Google gives it; a link gets one from `--cal-1`…`--cal-6` (`#7aa2ff`, `#2bd9a6`, `#ffb21e`, `#ff7ab6`, `#b18cff`, `#ff8a4c`) by its order. They appear only on calendar blocks and the small swatch next to a calendar's name.
+Text on a pop block is always `#121117`, in both themes. Calendar colors are data: a Google calendar keeps Google's color, a link takes `--cal-1`…`--cal-6` (blue, green, yellow, pink, orange, lilac) by its order.
 
-The three ways a link shows a calendar are the signature of the product and look the same everywhere:
-- **full**: a solid block in the calendar's color;
-- **busy**: the same block drawn as 45° hatching in `--ink-3` on `--panel-2`, labelled `busy`;
-- **off**: only a dashed `--rule-hi` outline.
-
-The ground is black with a faint radial bloom and the fixed grain overlay from fluxkit.dev (opacity .045, no pointer events).
+The three ways a link shows a calendar:
+- **full**: a solid block in the calendar's color, with an outline;
+- **busy**: black 45° hatching on the surface (`--hatch`), labelled `busy`;
+- **off**: a dashed outline and nothing inside.
 
 ## Type
 
-Self-hosted in `web/static/fonts/` (OFL, licenses next to the files), the same files as fluxkit.dev.
+Self-hosted in `web/static/fonts/` (OFL, licenses next to the files), Latin subset.
 
 | Role | Face |
 | --- | --- |
-| Everything | Martian Mono, variable width 75–112.5 and weight 100–800 |
-| Readout digits (the countdown, counts) | DSEG7 Classic Bold, always over a ghost `88` |
+| Display: wordmark, headings, names, numbers, countdown | Unbounded, variable 400–900 |
+| Text: sentences, buttons, inputs, meta | Figtree, variable 400–800 |
 
-- Wordmark `ubercal`: Martian Mono width 112.5, weight 800, lowercase, tight tracking.
-- Section labels: 11px, uppercase, width 100, letter-spacing .14em, `--ink-3`, prefixed by an index (`01`).
-- Names: width 112.5, weight 700. Sentences: width 87.5, weight 400, `--ink-2`. Body 14px.
+- Wordmark `ubercal`: Unbounded 900, lowercase, tight tracking; `cal` sits in a tilted blue block.
+- Headings: Unbounded 800. Labels: Figtree 800, 12px, uppercase, letter-spacing .08em, inside a colored pill with an outline.
+- Numbers (readouts, countdown): Unbounded 800, tabular.
+- Body: Figtree 16px (15px in the app), weight 500 for sentences.
+
+## Shape
+
+- Outline 2px `--line` on every card, button, input and switch.
+- Radius 14px for cards and panels, 12px for buttons and inputs, 999px for pills and chips.
+- Hard shadow `4px 4px 0 var(--shadow)` (6px on big cards). A button lifts on hover (`translate(-2px, -2px)`, shadow 6px) and presses on click (`translate(2px, 2px)`, shadow 0).
+- Nothing scrolls sideways at 1440, 1280, 1024, 768, 390 or 320. Touch targets at least 44px.
 
 ## Layout
 
-Measure `min(72rem, 100% - 2rem)`. Nothing scrolls sideways at 1440, 1280, 1024, 768, 390 or 320.
+**Landing.** Bar (`fluxkit / ubercal` left; theme switch, how it works, Sign in right) → hero (left: `$ ubercal`, the wordmark, “Every calendar. One link.” with a yellow marker under “One link.”, the lede, Sign in with Google, the read-only line; right: the merge, three calendar cards running down black conduits into a yellow junction and out to the share-link card with its countdown) → three readout blocks (yellow `sync · min 10`, pink `calendars 25`, green `trackers 00`) → `01 how it works` (three cards with a colored top band) → `02 what it keeps` (rows with a colored tag each) → footer.
 
-**Landing.** Bar (`fluxkit / ubercal` left, sign-in right) → hero (left: `$ ubercal`, the wordmark, “Every calendar. One link.”, the lede, Sign in with Google, the read-only line; right: the merge, a drawing of three calendars running down their conduits into the junction and out as one share link, with its countdown) → three readouts (`SYNC MIN 10` amber, `CALENDARS 25` red, `TRACKERS 00` green) → `01 how it works` (three cells: connect, choose, subscribe) → `02 what it keeps` (the privacy facts) → footer (fluxkit, privacy, terms, meaningtech).
-
-**App.** Bar (crumb, the person's picture and email, sign out) → readout strip (next sync countdown, calendars, links) → two columns above 960px, one below: **calendars in** (each calendar: swatch, name, its kind and where it comes from, how the last read went, actions; then connect Google and paste a link) and **share links** (each link a card: name, the link with copy and subscribe, one row per calendar with its three-way switch, calendars added later, how far back, the last time a calendar app read it, new link, delete).
-
-Cells and cards are square, 1px `--rule` border, `--panel` fill. Hover lifts a border to `--rule-hi`. No radius except avatars (round) and switches' focus ring. Buttons are 44px tall at least.
+**App.** Bar (crumb, theme switch, the person's picture and email, sign out) → readout strip (blue next-read countdown, pink calendars, green share links) → two columns above 960px, one below: **calendars in** and **share links**, as in the content spec in README.
 
 ## Motion
 
-- Landing: light runs down each conduit into the junction and out along the share link, staggered; the junction breathes; the readouts count up once; the hero rises in.
-- App: the countdown ticks every second; a calendar being read shows an amber pulse on its swatch; a copied link turns its button green for two seconds.
+- Landing: on load the hero rises in, staggered; light runs down each conduit into the junction and out along the share link; the junction breathes; the readouts count up once; the countdown ticks.
+- Buttons lift and press. Calendar blocks in the merge wobble once on load.
+- App: the countdown ticks every second; a calendar being read pulses its swatch; a copied link turns its button green for two seconds.
 - `prefers-reduced-motion: reduce` turns all of it off.
 
 ## Words

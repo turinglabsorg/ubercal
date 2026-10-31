@@ -5,9 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>ubercal</title>
   <meta name="robots" content="noindex">
-  <meta name="theme-color" content="#000000">
+  <meta name="theme-color" content="#fffaf0" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#121117" media="(prefers-color-scheme: dark)">
+  <script src="/static/theme.js"></script>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-  <link rel="preload" href="/static/fonts/martian-mono.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="/static/fonts/unbounded.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="/static/fonts/figtree.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="/static/site.css">
 </head>
 <body>
@@ -20,6 +23,8 @@
     <symbol id="i-trash" viewBox="0 0 16 16"><path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8.5h5.8l.6-8.5" fill="none" stroke="currentColor" stroke-width="1.4"/></symbol>
     <symbol id="i-plus" viewBox="0 0 16 16"><path d="M8 3v10M3 8h10" fill="none" stroke="currentColor" stroke-width="1.6"/></symbol>
     <symbol id="i-down" viewBox="0 0 16 16"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.5"/></symbol>
+    <symbol id="i-sun" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M5.3 18.7l1.6-1.6M17.1 6.9l1.6-1.6"/></g></symbol>
+    <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/></symbol>
   </svg>
 
   <div class="wrap">
@@ -29,15 +34,16 @@
         fluxkit <span>/</span> <strong>ubercal</strong>
       </a>
       <nav aria-label="Account">
+        <button class="theme" type="button" data-theme-toggle aria-label="Switch between light and dark"><svg class="sun" aria-hidden="true"><use href="#i-sun"/></svg><svg class="moon" aria-hidden="true"><use href="#i-moon"/></svg></button>
         <span class="who" data-who></span>
         <form method="post" action="/auth/logout"><button class="btn small quiet" type="submit">sign out</button></form>
       </nav>
     </header>
 
     <section class="strip" aria-label="Status">
-      <div class="readout"><p class="plate">next read</p><span class="digits uber" data-ghost="88:88" data-next>--:--</span><span class="meta" data-last></span></div>
-      <div class="readout"><p class="plate">calendars</p><span class="digits red" data-ghost="88" data-calendars>00</span><span class="meta" data-calendars-meta></span></div>
-      <div class="readout"><p class="plate">share links</p><span class="digits green" data-ghost="88" data-links>00</span><span class="meta" data-links-meta></span></div>
+      <div class="readout"><p class="plate">next read</p><span class="digits" data-next>--:--</span><span class="meta" data-last></span></div>
+      <div class="readout"><p class="plate">calendars</p><span class="digits" data-calendars>00</span><span class="meta" data-calendars-meta></span></div>
+      <div class="readout"><p class="plate">share links</p><span class="digits" data-links>00</span><span class="meta" data-links-meta></span></div>
     </section>
 
     <main class="board">
