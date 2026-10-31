@@ -322,15 +322,24 @@ export function createServer(context, config) {
     const path = normalize(join(webDir, relative));
     if (!path.startsWith(webDir + sep)) return send(res, 404, "Not found.");
     let body;
+    let info;
     try {
-      if (!(await stat(path)).isFile()) throw new Error();
+      info = await stat(path);
+      if (!info.isFile()) throw new Error();
       body = await readFile(path);
     } catch {
       return send(res, 404, "Not found.");
     }
     const type = MIME[extname(path)] || "application/octet-stream";
-    const cache = page ? "no-cache" : extname(path) === ".woff2" ? "public, max-age=31536000, immutable" : "public, max-age=3600";
-    res.writeHead(200, { "Content-Type": type, "Cache-Control": cache, ...(page ? PAGE_HEADERS : { "X-Content-Type-Options": "nosniff" }) });
+    // Pages, styles and scripts are checked again on every visit (a 304 when unchanged), so a deploy never mixes old and new files.
+    const cache = extname(path) === ".woff2" ? "public, max-age=31536000, immutable" : "no-cache";
+    const etag = `"${info.size.toString(36)}-${Math.floor(info.mtimeMs).toString(36)}"`;
+    const headers = { "Content-Type": type, "Cache-Control": cache, ETag: etag, ...(page ? PAGE_HEADERS : { "X-Content-Type-Options": "nosniff" }) };
+    if (req.headers["if-none-match"] === etag) {
+      res.writeHead(304, headers);
+      return res.end();
+    }
+    res.writeHead(200, headers);
     res.end(req.method === "HEAD" ? undefined : body);
   }
 

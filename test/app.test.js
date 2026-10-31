@@ -23,6 +23,9 @@ describe("the site and sign-in", () => {
     const landing = await request(running.base, "/");
     assert.equal(landing.status, 200);
     assert.match(landing.headers.get("content-security-policy"), /default-src 'self'/);
+    const style = await request(running.base, "/static/site.css");
+    assert.equal(style.headers.get("cache-control"), "no-cache");
+    assert.equal((await request(running.base, "/static/site.css", { headers: { "If-None-Match": style.headers.get("etag") } })).status, 304);
     const app = await request(running.base, "/app");
     assert.equal(app.status, 302);
     assert.equal(app.headers.get("location"), "/auth/google?next=/app");
