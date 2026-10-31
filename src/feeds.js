@@ -14,6 +14,8 @@ const MAX_FEED_BYTES = 15 * 1024 * 1024;
 export const REFRESH_MINUTES = 5;
 
 export const SHOWS = ["full", "busy", "hidden"];
+/** What a busy-only event is called, in the link's language. */
+export const BUSY_LABELS = { en: "Busy", it: "Occupato", es: "Ocupado", fr: "Occupé" };
 
 /** How a feed shows one calendar: full details, busy time only, or not at all. Calendars it does not name follow `others`. */
 export function showing(feed, sourceId) {
@@ -87,7 +89,7 @@ export async function renderFeed(db, feed, now = Date.now(), { annotate = false 
           hidden.add(doc.uid);
           continue;
         }
-        text = busyOnly(text, feed.busyLabel || "Busy");
+        text = busyOnly(text, feed.busyLabel || BUSY_LABELS[feed.language] || BUSY_LABELS.en);
       }
       const event = parse(text).children[0];
       if (!event || !prop(event, "DTSTART")) continue;

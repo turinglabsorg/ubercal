@@ -323,6 +323,22 @@ describe("share links", () => {
     assert.equal((await api(running, cookie, "PATCH", `/feeds/${feed.id}`, { from: "2026-12-01T00:00:00Z", until: "2026-11-01T00:00:00Z" })).status, 400);
   });
 
+  test("a link speaks one language: busy time is called in it, everywhere the link is read", async (t) => {
+    const { running, cookie, work, home } = await twoCalendars(t);
+    assert.equal((await api(running, cookie, "GET", "/me")).data.feeds[0].language, "en");
+    const created = await api(running, cookie, "POST", "/feeds", { name: "Per la squadra", calendars: { [work.id]: "busy", [home.id]: "hidden" }, others: "hidden", language: "it" });
+    const feed = created.data.feeds.find((entry) => entry.name === "Per la squadra");
+    assert.equal(feed.language, "it");
+    assert.match((await feedText(running, feed)).text, /SUMMARY:Occupato/);
+    const seen = (await api(running, cookie, "GET", `/calendar?from=2026-11-01T00:00:00Z&to=2026-11-08T00:00:00Z&link=${feed.id}`)).data.occurrences;
+    assert.deepEqual([...new Set(seen.map((entry) => entry.title))], ["Occupato"]);
+    assert.equal((await api(running, cookie, "PATCH", `/feeds/${feed.id}`, { language: "fr" })).status, 200);
+    const { text } = await feedText(running, feed);
+    assert.match(text, /SUMMARY:Occupé/);
+    assert.doesNotMatch(text, /Occupato|SUMMARY:Busy/);
+    assert.equal((await api(running, cookie, "PATCH", `/feeds/${feed.id}`, { language: "de" })).status, 400);
+  });
+
   test("a new address replaces the old one", async (t) => {
     const { running, cookie } = await twoCalendars(t);
     const feed = (await api(running, cookie, "GET", "/me")).data.feeds[0];

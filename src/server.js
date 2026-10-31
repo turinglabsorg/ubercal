@@ -135,7 +135,7 @@ export function createServer(context, config) {
   function feedView(feed) {
     const url = `${publicUrl}/feed/${feed.token}.ics`;
     return {
-      id: String(feed._id), name: feed.name, url, webcal: url.replace(/^https?:/, "webcal:"), calendars: feed.calendars || {}, others: feed.others || "full",
+      id: String(feed._id), name: feed.name, url, webcal: url.replace(/^https?:/, "webcal:"), calendars: feed.calendars || {}, others: feed.others || "full", language: LANGUAGES.includes(feed.language) ? feed.language : "en",
       ...(() => { const window = feedWindow(feed, context.now()); return { from: window.from === null ? null : new Date(window.from), until: window.until === null ? null : new Date(window.until) }; })(), count: feed.count || 0, builtAt: feed.builtAt || null, changedAt: feed.changedAt || null, fetchedAt: feed.fetchedAt || null, error: feed.error || "",
     };
   }
@@ -177,6 +177,10 @@ export function createServer(context, config) {
       if (!SHOWS.includes(body.others)) throw new HttpError(400, "A calendar is shown in full, as busy time, or not at all.");
       settings.others = body.others;
     }
+    if (body.language !== undefined) {
+      if (!LANGUAGES.includes(body.language)) throw new HttpError(400, "A link speaks Italian, English, Spanish or French.");
+      settings.language = body.language;
+    }
     // The window: events from `from` until `until`, each an instant or null for no limit.
     for (const edge of ["from", "until"]) {
       if (body[edge] === undefined) continue;
@@ -203,6 +207,7 @@ export function createServer(context, config) {
     return {
       id: String(page._id), name: page.name, description: page.description || "", slug: page.slug || "", url: page.slug ? `${publicUrl}/${page.slug}` : `${publicUrl}/book/${page.token}`, durations: page.durations, hours: page.hours,
       timeZone: page.timeZone, noticeMinutes: page.noticeMinutes, daysAhead: page.daysAhead, bufferMinutes: page.bufferMinutes, meet: page.meet !== false, active: page.active !== false,
+      language: LANGUAGES.includes(page.language) ? page.language : "en",
       target: page.target ? { connectionId: String(page.target.connectionId), calendarId: page.target.calendarId } : null,
       ready: Boolean(connection && canWrite(connection.scope) && connection.status !== "revoked"),
       upcoming: upcoming.filter((entry) => String(entry.pageId) === String(page._id)).slice(0, 10)
@@ -234,6 +239,11 @@ export function createServer(context, config) {
       settings[key] = Number(body[key]);
     }
     if (body.meet !== undefined) settings.meet = Boolean(body.meet);
+    // Every page has one language, the owner's choice: the page opens in it and the guest's emails are written in it.
+    if (body.language !== undefined) {
+      if (!LANGUAGES.includes(body.language)) throw new HttpError(400, "A page speaks Italian, English, Spanish or French.");
+      settings.language = body.language;
+    }
     if (body.active !== undefined) settings.active = Boolean(body.active);
     if (body.slug !== undefined) {
       const slug = String(body.slug || "").trim().toLowerCase();
@@ -267,7 +277,7 @@ export function createServer(context, config) {
     const writer = (await db.connections.find({ userId: user._id, status: { $ne: "revoked" } }).toArray()).find((connection) => canWrite(connection.scope));
     const page = {
       userId: user._id, token: token(), name: "30 minute meeting", description: "", durations: [30], hours: DEFAULT_HOURS,
-      timeZone: isZone(body.timeZone) ? body.timeZone : "UTC", noticeMinutes: 240, daysAhead: 30, bufferMinutes: 0, meet: true, active: true,
+      timeZone: isZone(body.timeZone) ? body.timeZone : "UTC", language: "en", noticeMinutes: 240, daysAhead: 30, bufferMinutes: 0, meet: true, active: true,
       target: writer ? { connectionId: writer._id, calendarId: writer.email } : null, createdAt: new Date(context.now()),
       ...(await pageSettings(user, { ...body, timeZone: undefined })),
     };
@@ -279,7 +289,7 @@ export function createServer(context, config) {
     const now = new Date(context.now());
     // A new link shows what happens from the day it is made onwards, with no end.
     const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-    const feed = { userId: user._id, token: token(), name: "My calendars", calendars: {}, others: "full", from: today, until: null, createdAt: now, ...(await feedSettings(user, body, { from: today, until: null })) };
+    const feed = { userId: user._id, token: token(), name: "My calendars", calendars: {}, others: "full", language: "en", from: today, until: null, createdAt: now, ...(await feedSettings(user, body, { from: today, until: null })) };
     const { insertedId } = await db.feeds.insertOne(feed);
     return buildFeed(db, { ...feed, _id: insertedId }, context.now());
   }
@@ -512,6 +522,7 @@ export function createServer(context, config) {
       const owner = await db.users.findOne({ _id: page.userId });
       return send(res, 200, {
         name: page.name, description: page.description || "", durations: page.durations, timeZone: page.timeZone, daysAhead: page.daysAhead, meet: page.meet !== false,
+        language: LANGUAGES.includes(page.language) ? page.language : "en",
         owner: { name: owner?.name || owner?.email?.split("@")[0] || "", picture: owner?.picture || "" }, ready: Boolean(await bookingTarget(page)),
       });
     }

@@ -491,9 +491,15 @@ footer { margin-top: clamp(4rem, 9vw, 6.5rem); border-top: 2px solid var(--line)
 .select { min-height: 40px; padding: 0 .6rem; border: 2px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--ink); font: inherit; font-size: 13.5px; font-weight: 700; box-shadow: 2px 2px 0 var(--shadow); }
 .link-error { margin: .75rem 0 0; color: var(--red); font-size: 14px; font-weight: 700; }
 .window { display: flex; flex-wrap: wrap; gap: .6rem 1.2rem; margin-top: 1rem; }
-.window label { display: flex; align-items: center; gap: .5rem; font-size: 13px; font-weight: 800; color: var(--ink-2); }
-.window label > span { min-width: 2.6rem; text-transform: uppercase; letter-spacing: .06em; font-size: 11.5px; }
-.window em { font-style: normal; padding: .1rem .5rem; border: 2px solid var(--line); border-radius: 999px; background: var(--yellow); color: var(--on-pop); font-size: 11.5px; }
+.window .edge { display: flex; align-items: center; gap: .5rem; }
+.window .edge > label { min-width: 2.6rem; text-transform: uppercase; letter-spacing: .06em; font-size: 11.5px; font-weight: 800; color: var(--ink-2); }
+.window em { font-style: normal; padding: .1rem .5rem; border: 2px solid var(--line); border-radius: 999px; background: var(--yellow); color: var(--on-pop); font-size: 11.5px; font-weight: 800; }
+.window .clear { min-height: 32px; }
+.link-language { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem .9rem; margin-top: 1rem; }
+.link-language .page-label { margin: 0; min-width: 2.6rem; }
+.link-language .flags button { width: 36px; height: 28px; }
+.page .link-language { margin-top: 0; }
+.hint { color: var(--ink-3); font-size: 12.5px; font-weight: 600; }
 .select.date { min-width: 9.5rem; }
 
 .toast {

@@ -123,6 +123,18 @@ describe("booking pages", () => {
     assert.equal((await request(running.base, `/book/${token}/info`)).status, 404);
   });
 
+  test("every page has one language, the owner's: the page opens in it", async (t) => {
+    const { running, cookie, page, token } = await owner(t);
+    assert.equal(page.language, "en");
+    assert.equal((await (await request(running.base, `/book/${token}/info`)).json()).language, "en");
+    const changed = await api(running, cookie, "PATCH", `/pages/${page.id}`, { language: "it" });
+    assert.equal(changed.data.pages[0].language, "it");
+    assert.equal((await (await request(running.base, `/book/${token}/info`)).json()).language, "it");
+    for (const language of ["auto", "de", ""]) assert.equal((await api(running, cookie, "PATCH", `/pages/${page.id}`, { language })).status, 400);
+    const second = (await api(running, cookie, "POST", "/pages", { timeZone: "Europe/Rome", language: "fr" })).data.pages.find((entry) => entry.id !== page.id);
+    assert.equal(second.language, "fr");
+  });
+
   test("a page can take a short address of its own, once, and words the site uses stay free", async (t) => {
     const { google, running, cookie, page } = await owner(t);
     assert.equal((await api(running, cookie, "GET", "/slugs/ada")).data.available, true);

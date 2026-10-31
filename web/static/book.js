@@ -13,8 +13,9 @@
     fr: { opening: "Ouverture de l'agenda…", none: "Aucune page de réservation ici", looking: "Recherche des créneaux libres…", empty: "Aucun créneau libre ce mois-ci. Essayez le suivant.", name: "votre nom", email: "votre e-mail (l'invitation arrive ici)", notes: "quelque chose à dire avant le rendez-vous (facultatif)", book: "réserver", booking: "réservation…", booked: "réservé", sent: (email) => `L'invitation est en route vers ${email}.`, accept: "Dernière étape : ouvrez l'invitation Google Agenda et répondez « Oui », pour que le rendez-vous soit confirmé dans votre agenda aussi.", meet: "Lien Google Meet", meetFact: "Lien Google Meet dans l'invitation", zone: (zone) => `Horaires dans votre fuseau : ${zone}`, closed: "Cette page n'accepte pas encore de réservations.", previous: "Mois précédent", next: "Mois suivant", footer: ["Réservation avec ", ", un outil open source de ", ""], taken: /took this time/ },
   };
   const LOCALES = { en: "en-GB", it: "it-IT", es: "es-ES", fr: "fr-FR" };
+  // The page opens in the language its owner chose; the browser's only covers the moment before the page is read.
+  // The flags switch it for this visit.
   let language = (() => {
-    try { const saved = localStorage.getItem("ubercal.lang"); if (WORDS[saved]) return saved; } catch {}
     for (const preferred of navigator.languages || [navigator.language || "en"]) { const short = String(preferred).slice(0, 2).toLowerCase(); if (WORDS[short]) return short; }
     return "en";
   })();
@@ -33,7 +34,6 @@
   for (const button of document.querySelectorAll("[data-lang]")) {
     button.addEventListener("click", () => {
       language = button.dataset.lang;
-      try { localStorage.setItem("ubercal.lang", language); } catch {}
       showLanguage();
       render();
     });
@@ -222,6 +222,7 @@
       root.replaceChildren(el("section", { class: "book-pick" }, el("h1", { text: words().none }), el("p", { class: "empty", text: error.message })));
       return;
     }
+    if (WORDS[view.info.language]) { language = view.info.language; showLanguage(); }
     document.title = `${view.info.name} · ubercal`;
     view.duration = view.info.durations[0];
     view.month = new Date();

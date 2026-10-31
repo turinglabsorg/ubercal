@@ -225,6 +225,16 @@
     box.replaceChildren(...accounts, connect);
   }
 
+  // Flags, never emoji or language names. Every link has one language, the owner's choice.
+  const LANGUAGES = [["it", "Italiano"], ["en", "English"], ["es", "Español"], ["fr", "Français"]];
+  const BUSY_WORDS = { en: "Busy", it: "Occupato", es: "Ocupado", fr: "Occupé" };
+  const ownLanguage = () => { const short = String(navigator.language || "en").slice(0, 2).toLowerCase(); return BUSY_WORDS[short] ? short : "en"; };
+  function languagePicker(current, onPick, label) {
+    const flag = (code) => { const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg"); svg.setAttribute("aria-hidden", "true"); const use = document.createElementNS("http://www.w3.org/2000/svg", "use"); use.setAttribute("href", `#f-${code}`); svg.append(use); return svg; };
+    return el("div", { class: "flags", role: "group", "aria-label": label },
+      LANGUAGES.map(([code, name]) => el("button", { type: "button", "data-lang": code, "aria-pressed": String(current === code), "aria-label": name, onclick: () => { if (current !== code) onPick(code); } }, flag(code))));
+  }
+
   function showSwitch(current, color, onPick, label) {
     return el("div", { class: "switch", role: "group", "aria-label": label },
       SHOWS.map(([show, text]) => el("button", {
@@ -268,14 +278,20 @@
       });
       const remove = el("button", { class: "btn small quiet danger", type: "button" }, el("span", { text: "delete" }));
       twoStep(remove, "delete", "click again to delete", async () => setState(await call("DELETE", `/feeds/${feed.id}`)));
-      const fromInput = el("input", { class: "select date", type: "date", value: localDay(feed.from), "aria-label": `${feed.name} shows events from` });
-      const untilInput = el("input", { class: "select date", type: "date", value: feed.until ? localDay(new Date(new Date(feed.until).getTime() - 1)) : "", "aria-label": `${feed.name} shows events until` });
+      const fromInput = el("input", { class: "select date", type: "date", id: `from-${feed.id}`, value: localDay(feed.from), "aria-label": `${feed.name} shows events from` });
+      const untilInput = el("input", { class: "select date", type: "date", id: `until-${feed.id}`, value: feed.until ? localDay(new Date(new Date(feed.until).getTime() - 1)) : "", "aria-label": `${feed.name} shows events until` });
       const saveWindow = () => patchFeed(feed, { from: fromInput.value ? dayInstant(fromInput.value) : null, until: untilInput.value ? dayInstant(untilInput.value, 1) : null });
       fromInput.addEventListener("change", saveWindow);
       untilInput.addEventListener("change", saveWindow);
+      // A native date field is hard to empty (and some browsers never say it was): "clear" opens the edge instead.
+      const clear = (edge, input) => el("button", { class: "btn small clear", type: "button", "aria-label": `${feed.name}: no ${edge === "from" ? "start" : "end"}`, onclick: () => { input.value = ""; saveWindow(); } }, el("span", { text: "clear" }));
       const dates = el("div", { class: "window" },
-        el("label", {}, el("span", { text: "from" }), fromInput, feed.from ? null : el("em", { text: "always" })),
-        el("label", {}, el("span", { text: "until" }), untilInput, feed.until ? null : el("em", { text: "forever" })));
+        el("div", { class: "edge" }, el("label", { for: `from-${feed.id}`, text: "from" }), fromInput, feed.from ? clear("from", fromInput) : el("em", { text: "always" })),
+        el("div", { class: "edge" }, el("label", { for: `until-${feed.id}`, text: "until" }), untilInput, feed.until ? clear("until", untilInput) : el("em", { text: "forever" })));
+      const language = el("div", { class: "link-language" },
+        el("span", { class: "page-label", text: "language" }),
+        languagePicker(feed.language, (code) => patchFeed(feed, { language: code }), `${feed.name} speaks`),
+        el("span", { class: "hint", text: `busy time reads “${BUSY_WORDS[feed.language] || "Busy"}”` }));
       const rows = state.sources.map((source, index) => {
         const current = feed.calendars[source.id] || feed.others;
         return el("div", { class: "show-row" },
@@ -295,6 +311,7 @@
             showSwitch(feed.others, "var(--ink-2)", (show) => patchFeed(feed, { others: show }), `How ${feed.name} shows calendars added later`))),
         feed.error ? el("p", { class: "link-error", text: feed.error }) : null,
         dates,
+        language,
         el("div", { class: "link-foot" }, el("span", { class: "link-meta" }, meta), el("div", { class: "row" }, rotate, remove)));
     }));
   }
@@ -684,6 +701,9 @@
         el("div", { class: "url" }, el("code", { text: page.url.replace(/^https?:\/\//, "") }), copyButton, el("a", { class: "btn small", href: page.url, target: "_blank", rel: "noopener", text: "open" })),
         el("h3", { class: "page-label", text: "short address" }), addressEditor(page),
         pageTarget(page),
+        el("h3", { class: "page-label", text: "language" }),
+        el("div", { class: "link-language" }, languagePicker(page.language, (code) => patchPage(page, { language: code }), `${page.name} speaks`),
+          el("span", { class: "hint", text: "the page opens in this language, and the guest's emails are written in it" })),
         el("h3", { class: "page-label", text: "how long" }), durations,
         el("h3", { class: "page-label", text: "when" }), hoursEditor(page),
         el("div", { class: "page-limits" }, zone, select("noticeMinutes", NOTICE_CHOICES, "Notice"), select("daysAhead", AHEAD_CHOICES.map((days) => [days, `up to ${days} days ahead`]), "How far ahead"), select("bufferMinutes", BUFFER_CHOICES.map((minutes) => [minutes, minutes ? `${minutes} min between meetings` : "no gap between meetings"]), "Gap"), meet),
@@ -724,7 +744,7 @@
 
   async function newPage() {
     try {
-      setState(await call("POST", "/pages", { timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone }));
+      setState(await call("POST", "/pages", { timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone, language: ownLanguage() }));
       toast("New booking page: Monday to Friday, 9 to 17, 30 minutes. Change anything below.", "good");
     } catch (error) { toast(error.message, "bad"); }
   }
@@ -752,7 +772,7 @@
   $("[data-new-link]").addEventListener("click", async () => {
     const calendars = Object.fromEntries(state.sources.map((source) => [source.id, "busy"]));
     try {
-      setState(await call("POST", "/feeds", { name: `Share link ${state.feeds.length + 1}`, calendars, others: "busy", from: dayInstant(localDay(new Date().toISOString())), until: null }));
+      setState(await call("POST", "/feeds", { name: `Share link ${state.feeds.length + 1}`, calendars, others: "busy", language: ownLanguage(), from: dayInstant(localDay(new Date().toISOString())), until: null }));
       toast("New link: every calendar starts as busy time. Switch any of them to full or off.", "good");
     } catch (error) { toast(error.message, "bad"); }
   });
