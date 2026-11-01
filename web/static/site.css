@@ -339,6 +339,7 @@ a { color: inherit; }
 .facts li:nth-child(3) b { background: var(--green); }
 .facts li:nth-child(4) b { background: var(--lilac); }
 .facts li:nth-child(5) b { background: var(--orange); }
+.facts li:nth-child(6) b { background: var(--blue); color: #fff; }
 .facts span { color: var(--ink-2); }
 .facts a { color: var(--ink); font-weight: 800; text-decoration-color: var(--blue); text-decoration-thickness: 2px; }
 

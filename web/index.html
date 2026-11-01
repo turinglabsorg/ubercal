@@ -50,7 +50,7 @@
             <a class="btn primary" href="/auth/google?next=/app" data-signin><svg class="google-g" aria-hidden="true"><use href="#i-g"/></svg><span data-signin-label>Sign in with Google</span></a>
             <a class="btn" href="#how">How it works</a>
           </div>
-          <p class="fineprint"><b>Read-only.</b> ubercal never writes to your calendars.</p>
+          <p class="fineprint"><b>Reads, never rewrites.</b> ubercal writes to your calendars only if you open a booking page, and then only the meetings people book.</p>
           <p class="notice" data-problem hidden></p>
         </div>
 
@@ -168,11 +168,12 @@
         <p class="label"><b>02</b> what it keeps</p>
         <h2>Only what it needs to merge, and nothing it does not.</h2>
         <ul class="facts">
-          <li><b>read-only</b><span>ubercal asks Google to read your calendars, never to change them.</span></li>
+          <li><b>read first</b><span>ubercal asks Google to read your calendars. Only when you open a booking page does it ask to add events, and then it adds just the meetings people book there, in a calendar you own, never touching your other events.</span></li>
           <li><b>sealed</b><span>Google's access tokens and your private .ics links are encrypted at rest.</span></li>
           <li><b>busy means busy</b><span>A calendar shown as busy leaves ubercal with its times only: no titles, places, people, notes or alarms.</span></li>
           <li><b>secret links</b><span>Every share link is a long random address. Make a new one and the old one stops working at once.</span></li>
           <li><b>open source</b><span>Every line of ubercal is public on <a href="https://github.com/turinglabsorg/ubercal">GitHub</a>, under the MIT license.</span></li>
+          <li><b>booking pages</b><span>Turn one on and people pick a free time in your merged calendar, like Calendly. ubercal adds the meeting to a calendar you own and Google invites the guest; the guest's details are deleted 30 days after the meeting.</span></li>
           <li><b>gone means gone</b><span>Delete your account and your calendars, events and links are deleted with it. Full details in the <a href="https://fluxkit.dev/privacy/">privacy policy</a>.</span></li>
         </ul>
       </section>
