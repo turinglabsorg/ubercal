@@ -402,3 +402,22 @@ test("only one process runs the pass at a time", async (t) => {
   const third = new Syncer(running.app.context);
   assert.equal(await third.runOnce(), true);
 });
+
+describe("Fluxkit connector callback", () => {
+  test("Cora connector states are forwarded to the fixed broker without touching the calendar session", async (t) => {
+    const running = await startApp(t);
+    const state = `cora.${Buffer.from(JSON.stringify({kind:"connect",nonce:"fixture"})).toString("base64url")}.${"a".repeat(43)}`;
+    const response = await request(running.base, `/auth/google/callback?${new URLSearchParams({state,code:"fixture-connector-code"})}`);
+    assert.equal(response.status,302);
+    const target = new URL(response.headers.get("location"));
+    assert.equal(target.origin,"https://connect.fluxkit.dev");
+    assert.equal(target.pathname,"/connectors/google/callback");
+    assert.equal(target.searchParams.get("state"),state);
+    assert.equal(target.searchParams.get("code"),"fixture-connector-code");
+    assert.equal(response.headers.get("set-cookie"),null);
+    const denied = await request(running.base, `/auth/google/callback?${new URLSearchParams({state,error:"access_denied"})}`);
+    assert.equal(new URL(denied.headers.get("location")).searchParams.get("error"),"denied");
+    const unrelated = await request(running.base,"/auth/google/callback?state=ordinary-calendar-state&code=fixture-code");
+    assert.doesNotMatch(unrelated.headers.get("location") || "",/connect\.fluxkit\.dev/);
+  });
+});

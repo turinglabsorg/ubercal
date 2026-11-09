@@ -756,7 +756,15 @@ export function createServer(context, config) {
       if (account) loginHint = (await db.connections.findOne({ _id: objectId(account), userId: user._id }))?.email || loginHint;
       return startGoogle(res, { purpose: "calendar", loginHint, write: url.searchParams.get("write") === "1", language: url.searchParams.get("hl") || "" });
     }
-    if (path === "/auth/google/callback" && req.method === "GET") return finishGoogle(req, res, url);
+    if (path === "/auth/google/callback" && req.method === "GET") {
+      const state = url.searchParams.get("state") || "";
+      if (/^cora\.[A-Za-z0-9_-]{1,5000}\.[A-Za-z0-9_-]{43}$/.test(state)) {
+        const next = new URL("https://connect.fluxkit.dev/connectors/google/callback");
+        next.search = new URLSearchParams({ state, ...(url.searchParams.get("error") ? { error: "denied" } : { code: url.searchParams.get("code") || "" }) });
+        return redirect(res, next.href);
+      }
+      return finishGoogle(req, res, url);
+    }
     if (path === "/auth/session" && req.method === "GET") return send(res, 200, { signedIn: Boolean(await currentUser(req)) });
     if (path === "/auth/logout" && req.method === "POST") {
       const from = req.headers.origin;
